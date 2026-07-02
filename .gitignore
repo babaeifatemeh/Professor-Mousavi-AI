@@ -15,7 +15,6 @@ frontend/out/
 # databases and uploaded data
 backend/*.db
 backend/chroma_db/
-backend/documents/
 backend/uploaded_files/
 uploads/
 vector_db/
