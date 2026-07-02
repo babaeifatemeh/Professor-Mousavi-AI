@@ -447,6 +447,50 @@ def rebuild_knowledge_base():
     }
 
 
+def auto_rebuild_knowledge_base_if_needed():
+    try:
+        existing_ids = collection.get().get("ids", [])
+
+        if existing_ids:
+            print(f"Knowledge base already has {len(existing_ids)} chunks.")
+            return
+
+        pdf_files = list(DOCUMENTS_DIR.glob("*.pdf"))
+
+        if not pdf_files:
+            print("No PDF files found in documents folder for auto rebuild.")
+            return
+
+        total_files = 0
+        total_chunks_saved = 0
+
+        for pdf_file in pdf_files:
+            pages_data, _ = extract_text_from_pdf(pdf_file)
+            extracted_text = pages_to_text(pages_data)
+
+            chunks_saved, _ = save_chunks_to_collection(
+                pdf_file.name,
+                extracted_text,
+                skip_existing=False,
+            )
+
+            total_files += 1
+            total_chunks_saved += chunks_saved
+
+        print(
+            f"Knowledge base auto rebuilt successfully: "
+            f"{total_files} files, {total_chunks_saved} chunks."
+        )
+
+    except Exception as error:
+        print(f"Knowledge base auto rebuild failed: {error}")
+
+
+@app.on_event("startup")
+def startup_tasks():
+    auto_rebuild_knowledge_base_if_needed()
+
+
 @app.get("/knowledge-base-status")
 def knowledge_base_status():
     data = collection.get()
