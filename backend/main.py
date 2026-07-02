@@ -45,6 +45,8 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://localhost:3001",
         "http://127.0.0.1:3001",
+        "https://professor-mousavi-ai.vercel.app",
+        "https://professor-mousavi-5e9kcxbmp-fatemehhbabaeii6-6689s-projects.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
