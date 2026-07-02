@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+python-multipart
+google-genai
+chromadb
+pypdf
+sqlmodel
+python-dotenv
+passlib[bcrypt]
+python-jose[cryptography]
