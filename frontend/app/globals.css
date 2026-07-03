@@ -28,3 +28,101 @@ body {
 * {
   font-family: var(--font-vazir), sans-serif;
 }
+
+/* Responsive fix for Professor Mousavi AI */
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+@media (max-width: 1024px) {
+  h1 {
+    font-size: 2.2rem !important;
+    line-height: 1.6 !important;
+  }
+
+  h2 {
+    font-size: 1.6rem !important;
+    line-height: 1.7 !important;
+  }
+
+  section {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+}
+
+@media (max-width: 640px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  h1 {
+    font-size: 1.45rem !important;
+    line-height: 2.1rem !important;
+  }
+
+  h2 {
+    font-size: 1.2rem !important;
+    line-height: 2rem !important;
+  }
+
+  h3 {
+    font-size: 1.05rem !important;
+    line-height: 1.9rem !important;
+  }
+
+  p,
+  li,
+  span,
+  article,
+  div {
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
+    white-space: normal !important;
+  }
+
+  article {
+    padding: 1rem !important;
+    border-radius: 1.25rem !important;
+    line-height: 2 !important;
+  }
+
+  input {
+    font-size: 16px !important;
+  }
+
+  button {
+    min-width: fit-content;
+    flex-shrink: 0;
+  }
+
+  .text-6xl,
+  .text-5xl,
+  .text-4xl {
+    font-size: 1.7rem !important;
+    line-height: 2.7rem !important;
+  }
+
+  .px-8,
+  .px-10,
+  .px-12,
+  .py-8,
+  .py-10,
+  .py-12 {
+    padding: 1rem !important;
+  }
+
+  .max-w-4xl,
+  .max-w-5xl,
+  .max-w-6xl,
+  .max-w-7xl {
+    max-width: 100% !important;
+  }
+}
