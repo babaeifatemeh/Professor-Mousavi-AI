@@ -1,0 +1,23 @@
+backend/.env
+frontend/.env
+frontend/.env.local
+
+# python
+backend/venv/
+__pycache__/
+*.pyc
+
+# node
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# databases and uploaded data
+backend/*.db
+backend/chroma_db/
+backend/uploaded_files/
+uploads/
+vector_db/
+
+# logs
+*.log
