@@ -13,11 +13,11 @@ from fastapi.responses import StreamingResponse
 from google import genai
 from pydantic import BaseModel
 from pypdf import PdfReader
-from sqlmodel import Session, select
+from sqlmodel import Session, select, delete
 
 from auth_routes import router as auth_router
 from database import create_db_and_tables, engine
-from models import User
+from models import User, DocumentFile
 
 load_dotenv()
 
@@ -486,8 +486,30 @@ def auto_rebuild_knowledge_base_if_needed():
         print(f"Knowledge base auto rebuild failed: {error}")
 
 
+def restore_documents_from_database():
+    DOCUMENTS_DIR.mkdir(exist_ok=True)
+
+    with Session(engine) as session:
+        files = session.exec(select(DocumentFile)).all()
+
+        restored_count = 0
+
+        for stored_file in files:
+            file_path = DOCUMENTS_DIR / stored_file.filename
+
+            if not file_path.exists():
+                file_path.write_bytes(stored_file.content)
+                restored_count += 1
+
+        print(
+            f"Restored {restored_count} documents from database "
+            f"out of {len(files)} stored documents."
+        )
+
+
 @app.on_event("startup")
 def startup_tasks():
+    restore_documents_from_database()
     auto_rebuild_knowledge_base_if_needed()
 
 
@@ -516,12 +538,29 @@ def knowledge_base_status():
 async def admin_upload_document(file: UploadFile = File(...)):
     DOCUMENTS_DIR.mkdir(exist_ok=True)
 
-    file_path = DOCUMENTS_DIR / file.filename
     content = await file.read()
+
+    file_path = DOCUMENTS_DIR / file.filename
     file_path.write_bytes(content)
 
+    with Session(engine) as session:
+        existing_file = session.exec(
+            select(DocumentFile).where(DocumentFile.filename == file.filename)
+        ).first()
+
+        if existing_file:
+            existing_file.content = content
+        else:
+            existing_file = DocumentFile(
+                filename=file.filename,
+                content=content,
+            )
+            session.add(existing_file)
+
+        session.commit()
+
     return {
-        "message": "فایل با موفقیت آپلود شد.",
+        "message": "فایل با موفقیت آپلود و در دیتابیس ذخیره شد.",
         "filename": file.filename,
     }
 
@@ -601,6 +640,11 @@ def delete_document(filename: str):
 
     if ids_to_delete:
         collection.delete(ids=ids_to_delete)
+
+    with Session(engine) as session:
+        statement = delete(DocumentFile).where(DocumentFile.filename == filename)
+        session.exec(statement)
+        session.commit()
 
     return {
         "message": "فایل و بخش‌های قابل جستجوی مربوط به آن با موفقیت حذف شد.",

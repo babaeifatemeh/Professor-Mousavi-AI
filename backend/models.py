@@ -32,3 +32,11 @@ class Message(SQLModel, table=True):
     content: str
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    class DocumentFile(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    filename: str = Field(index=True, unique=True)
+    content: bytes
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
