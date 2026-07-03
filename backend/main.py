@@ -21,7 +21,13 @@ from models import User, DocumentFile
 
 load_dotenv()
 
-api_key = os.getenv("GEMINI_API_KEY")
+api_keys = [
+    os.getenv("GEMINI_API_KEY"),
+    os.getenv("GEMINI_API_KEY_2"),
+    os.getenv("GEMINI_API_KEY_3"),
+]
+
+api_keys = [key.strip() for key in api_keys if key and key.strip()]
 
 UPLOAD_DIR = Path("uploaded_files")
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -248,7 +254,7 @@ def build_prompt(context: str, question: str):
 def home():
     return {
         "message": "ProfessorAI Backend is Running Successfully",
-        "gemini_key_loaded": bool(api_key),
+        "gemini_key_loaded": bool(api_keys),
     }
 
 
@@ -305,8 +311,8 @@ def get_context_and_sources(question: str):
 
 @app.post("/chat")
 def chat(request: ChatRequest):
-    if not api_key:
-        return {"answer": "خطا: کلید Gemini در فایل .env پیدا نشد."}
+    if not api_keys:
+        return {"answer": "خطا: کلید Gemini در تنظیمات سرور پیدا نشد."}
 
     context, sources, documents = get_context_and_sources(request.message)
 
@@ -317,14 +323,30 @@ def chat(request: ChatRequest):
         }
 
     prompt = build_prompt(context, request.message)
-    client = genai.Client(api_key=api_key)
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt,
-    )
+    answer = None
 
-    answer = response.text + build_sources_text(sources)
+    for key in api_keys:
+        try:
+            client = genai.Client(api_key=key)
+
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+            )
+
+            answer = response.text + build_sources_text(sources)
+            break
+
+        except Exception as error:
+            print(f"Gemini key failed in /chat: {error}")
+            continue
+
+    if answer is None:
+        answer = (
+            "سرویس هوش مصنوعی موقتاً به محدودیت استفاده رسیده است. "
+            "لطفاً کمی بعد دوباره تلاش کنید."
+        )
 
     return {
         "answer": answer,
@@ -334,9 +356,9 @@ def chat(request: ChatRequest):
 
 @app.post("/chat-stream")
 def chat_stream(request: ChatRequest):
-    if not api_key:
+    if not api_keys:
         return StreamingResponse(
-            iter(["خطا: کلید Gemini در فایل .env پیدا نشد."]),
+            iter(["خطا: کلید Gemini در تنظیمات سرور پیدا نشد."]),
             media_type="text/plain",
         )
 
@@ -349,19 +371,32 @@ def chat_stream(request: ChatRequest):
         )
 
     prompt = build_prompt(context, request.message)
-    client = genai.Client(api_key=api_key)
 
     def generate():
-        stream = client.models.generate_content_stream(
-            model="gemini-2.5-flash",
-            contents=prompt,
+        for key in api_keys:
+            try:
+                client = genai.Client(api_key=key)
+
+                stream = client.models.generate_content_stream(
+                    model="gemini-2.5-flash",
+                    contents=prompt,
+                )
+
+                for chunk in stream:
+                    if chunk.text:
+                        yield chunk.text
+
+                yield build_sources_text(sources)
+                return
+
+            except Exception as error:
+                print(f"Gemini key failed in /chat-stream: {error}")
+                continue
+
+        yield (
+            "سرویس هوش مصنوعی موقتاً به محدودیت استفاده رسیده است. "
+            "لطفاً کمی بعد دوباره تلاش کنید."
         )
-
-        for chunk in stream:
-            if chunk.text:
-                yield chunk.text
-
-        yield build_sources_text(sources)
 
     return StreamingResponse(generate(), media_type="text/plain")
 
