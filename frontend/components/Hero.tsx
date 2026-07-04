@@ -10,11 +10,11 @@ export default function Hero() {
       <h2 className="mx-auto max-w-4xl text-2xl font-extrabold leading-[2.4rem] text-green-950 sm:text-3xl md:text-5xl md:leading-relaxed">
         دستیار هوشمند مباحث درسی
         <br />
-        استاد علامه سید علی موسوی (ره)
+        استاد علامه سید علی موسوی‌(ره)
       </h2>
 
       <p className="mt-4 text-sm leading-8 text-gray-600 sm:text-base md:text-xl">
-        پاسخگویی مبتنی بر محتوای جزوات و متون درسی
+        پاسخگویی مبتنی بر محتوای کتابها، جزوات و متون درسی معظم‌له
       </p>
     </section>
   );
