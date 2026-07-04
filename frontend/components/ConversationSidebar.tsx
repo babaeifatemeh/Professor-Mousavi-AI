@@ -131,22 +131,25 @@ export default function ConversationSidebar({
     </>
   );
 
-  return (
-    <>
-      <aside className="fixed inset-x-4 top-24 bottom-6 z-[9999] overflow-y-auto rounded-3xl border border-green-100 bg-white/95 p-4 shadow-2xl shadow-green-900/20 backdrop-blur lg:static lg:inset-auto lg:z-auto lg:w-80 lg:shrink-0 lg:overflow-visible lg:bg-white/90 lg:shadow-xl lg:shadow-green-200/40">
-        {sidebarContent}
-      </aside>
+ return (
+  <>
+    <aside className="hidden w-80 shrink-0 rounded-3xl border border-green-100 bg-white/90 p-4 shadow-xl shadow-green-200/40 lg:block">
+      {sidebarContent}
+    </aside>
 
-      {isMobileOpen && (
-        <div className="fixed inset-0 z-50 bg-black/30 lg:hidden" onClick={onCloseMobile}>
-          <aside
-            className="h-full w-[88vw] max-w-sm overflow-y-auto rounded-l-3xl border-l border-green-100 bg-white p-4 shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            {sidebarContent}
-          </aside>
-        </div>
-      )}
-    </>
-  );
+    {isMobileOpen && (
+      <div
+        className="fixed inset-0 z-[9999] bg-black/40 lg:hidden"
+        onClick={onCloseMobile}
+      >
+        <aside
+          className="fixed right-3 top-4 bottom-4 w-[88vw] max-w-sm overflow-y-auto rounded-3xl border border-green-100 bg-white p-4 shadow-2xl"
+          onClick={(event) => event.stopPropagation()}
+        >
+          {sidebarContent}
+        </aside>
+      </div>
+    )}
+  </>
+);
 }
