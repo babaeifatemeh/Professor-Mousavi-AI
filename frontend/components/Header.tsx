@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { BookOpen, ChevronDown, LogOut, Settings, User } from "lucide-react";
+import { BookOpen, ChevronDown, LogOut, User } from "lucide-react";
 
 type UserData = {
   id: number;
@@ -30,10 +30,7 @@ export default function Header() {
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(event.target as Node)
-      ) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setMenuOpen(false);
       }
     }
@@ -50,36 +47,39 @@ export default function Header() {
   }
 
   return (
-    <nav className="relative z-20 mx-auto flex max-w-7xl items-center justify-between rounded-3xl border border-green-100 bg-white/90 px-9 py-7 shadow-xl shadow-green-200/50">
-      <div className="flex items-center gap-5">
-        <div className="flex h-20 w-20 items-center justify-center rounded-full border border-green-200 bg-green-50">
-          <BookOpen size={40} className="text-green-700" />
+    <nav className="relative z-30 mx-auto flex max-w-7xl flex-col gap-5 rounded-3xl border border-green-100 bg-white/95 px-4 py-5 text-center shadow-xl shadow-green-200/50 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-9 lg:py-7 lg:text-right">
+      <div className="flex flex-col items-center gap-4 lg:flex-row lg:gap-5">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-green-200 bg-green-50 sm:h-20 sm:w-20">
+          <BookOpen size={34} className="text-green-700 sm:size-10" />
         </div>
 
-        <div>
-          <h1 className="text-3xl font-extrabold text-green-900">
+        <div className="min-w-0">
+          <h1 className="text-xl font-extrabold leading-9 text-green-900 sm:text-2xl lg:text-3xl">
             پایگاه جامع درسی
           </h1>
 
-          <p className="mt-2 text-base text-green-900">
+          <p className="mt-1 text-sm leading-7 text-green-900 sm:text-base lg:mt-2">
             استاد علامه سید علی موسوی(ره)
           </p>
         </div>
       </div>
 
-      <div className="relative flex items-center gap-4" ref={menuRef}>
+      <div
+        className="relative flex w-full flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-center lg:w-auto lg:justify-end"
+        ref={menuRef}
+      >
         {!user ? (
           <>
             <Link
               href="/login"
-              className="rounded-xl border border-green-700 px-7 py-3 font-semibold text-green-800 transition hover:bg-green-50"
+              className="w-full rounded-xl border border-green-700 px-5 py-3 text-center font-semibold text-green-800 transition hover:bg-green-50 sm:w-auto sm:px-7"
             >
               ورود
             </Link>
 
             <Link
               href="/register"
-              className="flex items-center gap-2 rounded-xl bg-green-700 px-7 py-3 font-semibold text-white transition hover:bg-green-800"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-700 px-5 py-3 text-center font-semibold text-white transition hover:bg-green-800 sm:w-auto sm:px-7"
             >
               <User size={18} />
               عضویت
@@ -90,47 +90,29 @@ export default function Header() {
             <button
               type="button"
               onClick={() => setMenuOpen((prev) => !prev)}
-              className="flex items-center gap-2 rounded-xl bg-green-50 px-5 py-3 font-semibold text-green-900 transition hover:bg-green-100"
+              className="flex w-full min-w-0 items-center justify-center gap-2 rounded-xl bg-green-50 px-4 py-3 font-semibold text-green-900 transition hover:bg-green-100 sm:w-auto sm:max-w-xs lg:justify-start"
             >
-              <User size={18} />
-              <span>{user.full_name}</span>
-              <ChevronDown size={18} />
+              <User size={18} className="shrink-0" />
+              <span className="truncate">{user.full_name}</span>
+              <ChevronDown size={18} className="shrink-0" />
             </button>
 
             {menuOpen && (
-              <div className="absolute left-0 top-16 z-50 w-64 rounded-2xl border border-green-100 bg-white p-3 shadow-2xl shadow-green-200/60">
+              <div className="absolute left-0 top-14 z-50 w-full rounded-2xl border border-green-100 bg-white p-3 text-right shadow-2xl shadow-green-200/60 sm:w-72 lg:top-16">
                 <div className="border-b border-green-100 px-3 py-3">
-                  <div className="font-bold text-green-900">
+                  <div className="truncate font-bold text-green-900">
                     {user.full_name}
                   </div>
-                  <div className="mt-1 text-xs text-gray-500">
+                  <div className="mt-1 truncate text-xs text-gray-500">
                     {user.email}
                   </div>
                 </div>
-
-                <button
-                  type="button"
-                  className="mt-2 flex w-full cursor-pointer items-center gap-2 rounded-xl bg-red-50 px-3 py-3 text-right font-bold text-red-700 transition hover:bg-red-100"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  <User size={18} />
-                  پروفایل
-                </button>
-
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded-xl px-3 py-3 text-right text-green-900 transition hover:bg-green-50"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  <Settings size={18} />
-                  تنظیمات
-                </button>
 
                 {user.is_admin && (
                   <Link
                     href="/admin"
                     onClick={() => setMenuOpen(false)}
-                    className="flex w-full items-center gap-2 rounded-xl px-3 py-3 text-right text-green-900 transition hover:bg-green-50"
+                    className="mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-3 text-right text-green-900 transition hover:bg-green-50"
                   >
                     <span>🛠</span>
                     پنل مدیریت

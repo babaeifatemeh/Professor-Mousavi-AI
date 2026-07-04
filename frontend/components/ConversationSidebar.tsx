@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MessageSquarePlus } from "lucide-react";
+import { MessageSquarePlus, X } from "lucide-react";
 
 type Conversation = {
   id: number;
@@ -13,16 +13,20 @@ type Props = {
   userId: number | null;
   activeConversationId: number | null;
   refreshKey: number;
+  isMobileOpen?: boolean;
+  onCloseMobile?: () => void;
   onNewChat: () => void;
   onSelectConversation: (conversationId: number) => void;
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api-backend";
 
 export default function ConversationSidebar({
   userId,
   activeConversationId,
   refreshKey,
+  isMobileOpen = false,
+  onCloseMobile,
   onNewChat,
   onSelectConversation,
 }: Props) {
@@ -50,22 +54,47 @@ export default function ConversationSidebar({
     loadConversations();
   }, [userId, refreshKey]);
 
-  return (
-    <aside className="w-80 shrink-0 rounded-3xl border border-green-100 bg-white/90 p-4 shadow-xl shadow-green-200/40">
+  function handleNewChat() {
+    onNewChat();
+    onCloseMobile?.();
+  }
+
+  function handleSelectConversation(conversationId: number) {
+    onSelectConversation(conversationId);
+    onCloseMobile?.();
+  }
+
+  const sidebarContent = (
+    <>
+      <div className="mb-4 flex items-center justify-between gap-3 lg:hidden">
+        <h2 className="text-base font-extrabold text-green-900">
+          تاریخچه گفتگوها
+        </h2>
+
+        <button
+          type="button"
+          onClick={onCloseMobile}
+          className="rounded-full bg-green-50 p-2 text-green-900"
+          aria-label="بستن تاریخچه"
+        >
+          <X size={20} />
+        </button>
+      </div>
+
       <button
         type="button"
-        onClick={onNewChat}
+        onClick={handleNewChat}
         className="mb-5 flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-green-800 px-4 py-3 font-bold text-white transition hover:bg-green-900"
       >
         <MessageSquarePlus size={18} />
         گفتگوی جدید
       </button>
 
-      <h2 className="mb-3 px-2 text-sm font-bold text-green-900">
+      <h2 className="mb-3 hidden px-2 text-sm font-bold text-green-900 lg:block">
         تاریخچه گفتگوها
       </h2>
 
-      <div className="max-h-[620px] space-y-2 overflow-y-auto pr-1">
+      <div className="max-h-[calc(100vh-180px)] space-y-2 overflow-y-auto pr-1 lg:max-h-[620px]">
         {loading && (
           <p className="rounded-xl bg-green-50 px-3 py-3 text-sm text-gray-500">
             در حال بارگذاری...
@@ -82,7 +111,7 @@ export default function ConversationSidebar({
           <button
             key={conversation.id}
             type="button"
-            onClick={() => onSelectConversation(conversation.id)}
+            onClick={() => handleSelectConversation(conversation.id)}
             className={`w-full cursor-pointer rounded-xl px-3 py-3 text-right text-sm transition ${
               activeConversationId === conversation.id
                 ? "bg-green-800 text-white"
@@ -99,6 +128,25 @@ export default function ConversationSidebar({
           </button>
         ))}
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      <aside className="hidden w-80 shrink-0 rounded-3xl border border-green-100 bg-white/90 p-4 shadow-xl shadow-green-200/40 lg:block">
+        {sidebarContent}
+      </aside>
+
+      {isMobileOpen && (
+        <div className="fixed inset-0 z-50 bg-black/30 lg:hidden" onClick={onCloseMobile}>
+          <aside
+            className="h-full w-[88vw] max-w-sm overflow-y-auto rounded-l-3xl border-l border-green-100 bg-white p-4 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {sidebarContent}
+          </aside>
+        </div>
+      )}
+    </>
   );
 }

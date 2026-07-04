@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { History } from "lucide-react";
 import KnowledgeStatus from "@/components/KnowledgeStatus";
 import Footer from "@/components/Footer";
 import FeatureCards from "@/components/FeatureCards";
@@ -20,6 +21,7 @@ export default function Home() {
   const [user, setUser] = useState<UserData | null>(null);
   const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   useEffect(() => {
     const savedUser = localStorage.getItem("user");
@@ -34,15 +36,28 @@ export default function Home() {
   }, []);
 
   return (
-    <main dir="rtl" className="min-h-screen overflow-hidden bg-[#eef8ef] text-[#063f25]">
-      <div className="relative min-h-screen px-10 py-8">
-        <div className="absolute -left-24 top-72 h-96 w-96 rounded-full border border-green-200/30 opacity-40" />
-        <div className="absolute -right-20 top-96 h-80 w-80 rounded-full border border-green-200/30 opacity-40" />
-        <div className="absolute bottom-0 left-0 right-0 h-64 rounded-t-[50%] bg-green-100/50" />
+    <main dir="rtl" className="min-h-screen overflow-x-hidden bg-[#eef8ef] text-[#063f25]">
+      <div className="relative min-h-screen px-4 py-5 sm:px-6 md:px-10 md:py-8">
+        <div className="pointer-events-none absolute -left-24 top-72 h-96 w-96 rounded-full border border-green-200/30 opacity-40" />
+        <div className="pointer-events-none absolute -right-20 top-96 h-80 w-80 rounded-full border border-green-200/30 opacity-40" />
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-64 rounded-t-[50%] bg-green-100/50" />
 
         <Header />
 
-        <div className="relative z-10 mx-auto mt-8 flex max-w-7xl gap-6">
+        {user && (
+          <div className="relative z-20 mx-auto mt-5 max-w-7xl lg:hidden">
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white/95 px-4 py-3 font-bold text-green-900 shadow-lg shadow-green-200/50"
+            >
+              <History size={18} />
+              تاریخچه گفتگوها
+            </button>
+          </div>
+        )}
+
+        <div className="relative z-10 mx-auto mt-6 flex max-w-7xl flex-col gap-6 lg:mt-8 lg:flex-row">
           <div className="min-w-0 flex-1">
             <Hero />
 
@@ -65,6 +80,8 @@ export default function Home() {
               userId={user.id}
               activeConversationId={activeConversationId}
               refreshKey={refreshKey}
+              isMobileOpen={historyOpen}
+              onCloseMobile={() => setHistoryOpen(false)}
               onNewChat={() => setActiveConversationId(null)}
               onSelectConversation={(conversationId) =>
                 setActiveConversationId(conversationId)
