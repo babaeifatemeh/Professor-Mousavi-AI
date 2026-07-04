@@ -62,8 +62,22 @@ export default function AdminPage() {
 
   const [dashboard, setDashboard] = useState({
     users: 0,
+    active_users: 0,
+    inactive_users: 0,
+    admin_users: 0,
     documents: 0,
+    stored_documents: 0,
+    indexed_documents: 0,
+    pages: 0,
     chunks: 0,
+    conversations: 0,
+    messages: 0,
+    files_size_kb: 0,
+    database_documents_size_kb: 0,
+    api_keys: 0,
+    gemini_ready: false,
+    chroma_ready: false,
+    database_ready: false,
     knowledge_ready: false,
   });
 
@@ -378,53 +392,112 @@ export default function AdminPage() {
           پنل مدیریت
         </h1>
 
-        <div className="mb-8 grid gap-6 md:grid-cols-3">
-          <div className="rounded-3xl bg-white p-6 shadow-xl shadow-green-100">
-            <h2 className="text-xl font-bold text-green-900">کاربران</h2>
+        <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-3xl bg-white p-5 shadow-xl shadow-green-100">
+            <h2 className="text-lg font-bold text-green-900">کاربران</h2>
             <p className="mt-3 text-3xl font-extrabold text-green-950">
               {dashboard.users}
             </p>
-            <p className="mt-2 text-gray-600">کاربر ثبت‌شده</p>
+            <p className="mt-2 text-sm text-gray-600">
+              فعال: {dashboard.active_users} | مدیر: {dashboard.admin_users} | غیرفعال: {dashboard.inactive_users}
+            </p>
           </div>
 
-          <div className="rounded-3xl bg-white p-6 shadow-xl shadow-green-100">
-            <h2 className="text-xl font-bold text-green-900">منابع درسی</h2>
+          <div className="rounded-3xl bg-white p-5 shadow-xl shadow-green-100">
+            <h2 className="text-lg font-bold text-green-900">گفتگوها</h2>
+            <p className="mt-3 text-3xl font-extrabold text-green-950">
+              {dashboard.conversations}
+            </p>
+            <p className="mt-2 text-sm text-gray-600">
+              {dashboard.messages} پیام ذخیره‌شده
+            </p>
+          </div>
+
+          <div className="rounded-3xl bg-white p-5 shadow-xl shadow-green-100">
+            <h2 className="text-lg font-bold text-green-900">منابع درسی</h2>
             <p className="mt-3 text-3xl font-extrabold text-green-950">
               {dashboard.documents}
             </p>
-            <p className="mt-2 text-gray-600">فایل PDF فعال</p>
+            <p className="mt-2 text-sm text-gray-600">
+              {dashboard.pages} صفحه | {dashboard.files_size_kb} KB
+            </p>
           </div>
 
-          <div className="rounded-3xl bg-white p-6 shadow-xl shadow-green-100">
-            <h2 className="text-xl font-bold text-green-900">
-              پایگاه اطلاعاتی
-            </h2>
+          <div className="rounded-3xl bg-white p-5 shadow-xl shadow-green-100">
+            <h2 className="text-lg font-bold text-green-900">پایگاه دانش</h2>
+            <p className="mt-3 text-3xl font-extrabold text-green-950">
+              {dashboard.chunks}
+            </p>
+            <p
+              className={`mt-2 text-sm font-bold ${
+                dashboard.knowledge_ready ? "text-green-700" : "text-red-600"
+              }`}
+            >
+              {dashboard.knowledge_ready
+                ? "🟢 آماده پاسخگویی"
+                : "🔴 نیاز به بازسازی"}
+            </p>
+          </div>
+        </div>
 
-            <div className="mt-3">
-              <p className="text-3xl font-extrabold text-green-950">
-                {dashboard.chunks}
-              </p>
-
-              <p
-                className={`mt-2 font-bold ${
-                  dashboard.knowledge_ready ? "text-green-700" : "text-red-600"
-                }`}
-              >
-                {dashboard.knowledge_ready
-                  ? "🟢 آماده پاسخگویی"
-                  : "🔴 پایگاه اطلاعاتی خالی است"}
+        <div className="mb-8 rounded-3xl bg-white p-6 shadow-xl shadow-green-100">
+          <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-green-900">وضعیت سیستم</h2>
+              <p className="mt-2 text-sm text-gray-600">
+                نمای کلی سلامت سامانه، دیتابیس، موتور هوشمند و فایل‌های پایدار
               </p>
             </div>
 
             <button
               onClick={rebuildKnowledgeBase}
               disabled={isRebuilding}
-              className="mt-4 w-full cursor-pointer rounded-xl bg-green-800 px-5 py-3 font-bold text-white transition hover:bg-green-900 disabled:cursor-not-allowed disabled:bg-gray-300"
+              className="cursor-pointer rounded-xl bg-green-800 px-5 py-3 font-bold text-white transition hover:bg-green-900 disabled:cursor-not-allowed disabled:bg-gray-300"
             >
-              {isRebuilding
-                ? "در حال بازسازی..."
-                : "🔄 بازسازی پایگاه اطلاعاتی"}
+              {isRebuilding ? "در حال بازسازی..." : "🔄 بازسازی پایگاه دانش"}
             </button>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-2xl border border-green-100 bg-green-50 p-4">
+              <div className="text-sm font-bold text-green-900">Gemini API</div>
+              <div className="mt-2 text-lg font-extrabold text-green-950">
+                {dashboard.gemini_ready ? "🟢 فعال" : "🔴 غیرفعال"}
+              </div>
+              <div className="mt-1 text-xs text-gray-600">
+                {dashboard.api_keys} کلید فعال در سرور
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-green-100 bg-green-50 p-4">
+              <div className="text-sm font-bold text-green-900">Supabase Database</div>
+              <div className="mt-2 text-lg font-extrabold text-green-950">
+                {dashboard.database_ready ? "🟢 متصل" : "🔴 خطا"}
+              </div>
+              <div className="mt-1 text-xs text-gray-600">
+                {dashboard.stored_documents} فایل پایدار در دیتابیس
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-green-100 bg-green-50 p-4">
+              <div className="text-sm font-bold text-green-900">ChromaDB</div>
+              <div className="mt-2 text-lg font-extrabold text-green-950">
+                {dashboard.chroma_ready ? "🟢 آماده" : "🔴 خطا"}
+              </div>
+              <div className="mt-1 text-xs text-gray-600">
+                {dashboard.indexed_documents} فایل ایندکس‌شده
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-green-100 bg-green-50 p-4">
+              <div className="text-sm font-bold text-green-900">حجم ذخیره‌سازی</div>
+              <div className="mt-2 text-lg font-extrabold text-green-950">
+                {dashboard.database_documents_size_kb} KB
+              </div>
+              <div className="mt-1 text-xs text-gray-600">
+                فایل‌های PDF ذخیره‌شده در دیتابیس
+              </div>
+            </div>
           </div>
         </div>
 

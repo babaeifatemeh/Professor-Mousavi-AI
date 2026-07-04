@@ -17,7 +17,7 @@ from sqlmodel import Session, select, delete
 
 from auth_routes import router as auth_router
 from database import create_db_and_tables, engine
-from models import User, DocumentFile
+from models import User, Conversation, Message, DocumentFile
 
 load_dotenv()
 
@@ -689,21 +689,70 @@ def delete_document(filename: str):
 
 @app.get("/admin/dashboard")
 def admin_dashboard():
-    files = list(DOCUMENTS_DIR.glob("*.pdf"))
+    DOCUMENTS_DIR.mkdir(exist_ok=True)
+
+    pdf_files = list(DOCUMENTS_DIR.glob("*.pdf"))
 
     collection_data = collection.get()
     chunks = collection_data.get("ids", [])
+    metadatas = collection_data.get("metadatas", [])
+
+    total_pages = 0
+    total_size_kb = 0
+    indexed_files = set()
+
+    for file in pdf_files:
+        try:
+            total_size_kb += round(file.stat().st_size / 1024, 2)
+        except Exception:
+            pass
+
+        try:
+            reader = PdfReader(str(file))
+            total_pages += len(reader.pages)
+        except Exception:
+            pass
+
+    for meta in metadatas:
+        filename = meta.get("filename")
+        if filename:
+            indexed_files.add(filename)
 
     with Session(engine) as session:
-        users_count = len(session.exec(select(User)).all())
+        users = session.exec(select(User)).all()
+        conversations = session.exec(select(Conversation)).all()
+        messages = session.exec(select(Message)).all()
+        stored_documents = session.exec(select(DocumentFile)).all()
+
+    active_users = len([user for user in users if user.is_active])
+    inactive_users = len([user for user in users if not user.is_active])
+    admin_users = len([user for user in users if user.is_admin])
+
+    database_documents_size_kb = round(
+        sum(len(document.content or b"") for document in stored_documents) / 1024,
+        2,
+    )
 
     return {
-        "users": users_count,
-        "documents": len(files),
+        "users": len(users),
+        "active_users": active_users,
+        "inactive_users": inactive_users,
+        "admin_users": admin_users,
+        "documents": len(pdf_files),
+        "stored_documents": len(stored_documents),
+        "indexed_documents": len(indexed_files),
+        "pages": total_pages,
         "chunks": len(chunks),
+        "conversations": len(conversations),
+        "messages": len(messages),
+        "files_size_kb": round(total_size_kb, 2),
+        "database_documents_size_kb": database_documents_size_kb,
+        "api_keys": len(api_keys),
+        "gemini_ready": bool(api_keys),
+        "chroma_ready": True,
+        "database_ready": True,
         "knowledge_ready": len(chunks) > 0,
     }
-
 
 @app.get("/admin/users")
 def admin_users():
