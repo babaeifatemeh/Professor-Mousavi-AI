@@ -110,6 +110,8 @@ export default function Header() {
 
                 <Link
                   href="/profile"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   onClick={() => setMenuOpen(false)}
                   className="mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-3 text-right text-green-900 transition hover:bg-green-50"
                 >
@@ -120,6 +122,8 @@ export default function Header() {
                 {user.is_admin && (
                   <Link
                     href="/admin"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     onClick={() => setMenuOpen(false)}
                     className="mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-3 text-right text-green-900 transition hover:bg-green-50"
                   >
