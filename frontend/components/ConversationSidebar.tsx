@@ -133,7 +133,7 @@ export default function ConversationSidebar({
 
   return (
     <>
-      <aside className="hidden w-80 shrink-0 rounded-3xl border border-green-100 bg-white/90 p-4 shadow-xl shadow-green-200/40 lg:block">
+      <aside className="fixed inset-x-4 top-24 bottom-6 z-[9999] overflow-y-auto rounded-3xl border border-green-100 bg-white/95 p-4 shadow-2xl shadow-green-900/20 backdrop-blur lg:static lg:inset-auto lg:z-auto lg:w-80 lg:shrink-0 lg:overflow-visible lg:bg-white/90 lg:shadow-xl lg:shadow-green-200/40">
         {sidebarContent}
       </aside>
 
