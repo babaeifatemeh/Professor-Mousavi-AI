@@ -57,7 +57,7 @@ export default function Home() {
           </div>
         )}
 
-        <div className="relative z-10 mx-auto mt-6 flex max-w-7xl flex-col gap-6 lg:mt-8 lg:flex-row">
+        <div className={`relative mx-auto mt-6 flex max-w-7xl flex-col gap-6 lg:mt-8 lg:flex-row ${historyOpen ? "z-[9998]" : "z-10"}`}>
           <div className="min-w-0 flex-1">
             <Hero />
 
