@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 type UserData = {
@@ -388,6 +389,18 @@ export default function AdminPage() {
       )}
 
       <div className="mx-auto max-w-6xl">
+
+         <div className="mb-4 flex justify-end">
+            <Link
+                href="/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-xl border border-green-200 bg-white px-4 py-2 text-sm font-bold text-green-800 shadow-sm transition hover:bg-green-50"
+            >
+               ← بازگشت به سایت
+            </Link>
+       </div>
+
         <h1 className="mb-8 text-4xl font-extrabold text-green-900">
           پنل مدیریت
         </h1>
