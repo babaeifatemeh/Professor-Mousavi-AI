@@ -108,6 +108,15 @@ export default function Header() {
                   </div>
                 </div>
 
+                <Link
+                  href="/profile"
+                  onClick={() => setMenuOpen(false)}
+                  className="mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-3 text-right text-green-900 transition hover:bg-green-50"
+                >
+                  <span>👤</span>
+                  پروفایل من
+                </Link>
+
                 {user.is_admin && (
                   <Link
                     href="/admin"

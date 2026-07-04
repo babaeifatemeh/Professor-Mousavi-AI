@@ -44,6 +44,16 @@ class UpdateUserRequest(BaseModel):
     is_active: bool
 
 
+class UpdateProfileRequest(BaseModel):
+    full_name: str
+    email: EmailStr
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
 def normalize_email(email: str) -> str:
     return email.strip().lower()
 
@@ -177,6 +187,127 @@ def reset_password_demo(
         "message": "رمز عبور با موفقیت تغییر کرد.",
         "email": user.email,
     }
+
+
+@router.get("/profile/{user_id}")
+def get_user_profile(
+    user_id: int,
+    session: Session = Depends(get_session),
+):
+    user = session.get(User, user_id)
+
+    if not user:
+        raise HTTPException(status_code=404, detail="کاربر پیدا نشد.")
+
+    conversations = session.exec(
+        select(Conversation).where(Conversation.user_id == user_id)
+    ).all()
+
+    conversation_ids = [conversation.id for conversation in conversations]
+    messages_count = 0
+
+    if conversation_ids:
+        for conversation_id in conversation_ids:
+            messages = session.exec(
+                select(Message).where(Message.conversation_id == conversation_id)
+            ).all()
+            messages_count += len(messages)
+
+    latest_conversation = None
+    if conversations:
+        latest_conversation = max(
+            conversations,
+            key=lambda item: item.created_at,
+        )
+
+    return {
+        "user": {
+            "id": user.id,
+            "full_name": user.full_name,
+            "email": user.email,
+            "is_admin": user.is_admin,
+            "is_active": user.is_active,
+            "role_label": "مدیر" if user.is_admin else "کاربر",
+        },
+        "stats": {
+            "conversations_count": len(conversations),
+            "messages_count": messages_count,
+            "latest_conversation_at": latest_conversation.created_at if latest_conversation else None,
+        },
+    }
+
+
+@router.put("/profile/{user_id}")
+def update_user_profile(
+    user_id: int,
+    request: UpdateProfileRequest,
+    session: Session = Depends(get_session),
+):
+    user = session.get(User, user_id)
+
+    if not user:
+        raise HTTPException(status_code=404, detail="کاربر پیدا نشد.")
+
+    email = normalize_email(request.email)
+    validate_email_domain(email)
+
+    existing_user = session.exec(
+        select(User).where(User.email == email, User.id != user_id)
+    ).first()
+
+    if existing_user:
+        raise HTTPException(
+            status_code=400,
+            detail="این ایمیل برای کاربر دیگری ثبت شده است.",
+        )
+
+    user.full_name = request.full_name.strip()
+    user.email = email
+
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    return {
+        "message": "پروفایل با موفقیت به‌روزرسانی شد.",
+        "user": {
+            "id": user.id,
+            "full_name": user.full_name,
+            "email": user.email,
+            "is_admin": user.is_admin,
+            "is_active": user.is_active,
+        },
+    }
+
+
+@router.post("/profile/{user_id}/change-password")
+def change_user_password(
+    user_id: int,
+    request: ChangePasswordRequest,
+    session: Session = Depends(get_session),
+):
+    user = session.get(User, user_id)
+
+    if not user:
+        raise HTTPException(status_code=404, detail="کاربر پیدا نشد.")
+
+    if not verify_password(request.current_password, user.password):
+        raise HTTPException(
+            status_code=400,
+            detail="رمز عبور فعلی نادرست است.",
+        )
+
+    if len(request.new_password) < 8:
+        raise HTTPException(
+            status_code=400,
+            detail="رمز عبور جدید باید حداقل ۸ کاراکتر باشد.",
+        )
+
+    user.password = hash_password(request.new_password)
+    session.add(user)
+    session.commit()
+
+    return {"message": "رمز عبور با موفقیت تغییر کرد."}
 
 
 @router.post("/make-admin-demo")
