@@ -300,7 +300,7 @@ def get_context_and_sources(question: str):
     if total_chunks == 0:
         return "", [], []
 
-    search_limit = min(total_chunks, 300)
+    search_limit = min(total_chunks, 80)
 
     documents, metadatas = smart_search(
         collection=collection,
@@ -319,7 +319,7 @@ def get_context_and_sources(question: str):
         if filename not in grouped:
             grouped[filename] = 0
 
-        if grouped[filename] < 5:
+        if grouped[filename] < 3:
             selected_documents.append(document)
             grouped[filename] += 1
 
