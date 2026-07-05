@@ -187,44 +187,13 @@ def clean_source_name(filename: str):
     return f"{name}، مقاله‌ای برگرفته از سایت استاد علامه سید علی موسوی(ره)"
 
 
-def compact_page_ranges(pages):
-    valid_pages = sorted({int(page) for page in pages if page})
-
-    if not valid_pages:
-        return ""
-
-    ranges = []
-    start = valid_pages[0]
-    previous = valid_pages[0]
-
-    for page in valid_pages[1:]:
-        if page == previous + 1:
-            previous = page
-            continue
-
-        if start == previous:
-            ranges.append(str(start))
-        else:
-            ranges.append(f"{start} تا {previous}")
-
-        start = page
-        previous = page
-
-    if start == previous:
-        ranges.append(str(start))
-    else:
-        ranges.append(f"{start} تا {previous}")
-
-    return "، ".join(ranges)
-
-
 def build_sources_text(sources):
     if not sources:
         return ""
 
-    grouped_sources = {}
+    cleaned_sources = []
 
-    for source in sources[:8]:
+    for source in sources[:5]:
         if isinstance(source, dict):
             filename = source.get("filename", "منبع نامشخص")
             page = source.get("page", 0)
@@ -234,62 +203,61 @@ def build_sources_text(sources):
 
         cleaned = clean_source_name(filename)
 
-        if cleaned not in grouped_sources:
-            grouped_sources[cleaned] = set()
-
         if page:
-            grouped_sources[cleaned].add(page)
+            cleaned = f"{cleaned}، صفحه {page}"
 
-    if not grouped_sources:
+        if cleaned not in cleaned_sources:
+            cleaned_sources.append(cleaned)
+
+    if not cleaned_sources:
         return ""
 
-    text = "\n\n## منابع مورد استفاده\n\n"
+    text = "\n\n## منابع استفاده‌شده\n\n"
 
-    for source_name, pages in grouped_sources.items():
-        page_text = compact_page_ranges(pages)
-
-        if page_text:
-            text += f"- {source_name}، صفحات {page_text}\n"
-        else:
-            text += f"- {source_name}\n"
+    for item in cleaned_sources:
+        text += f"- {item}\n"
 
     return text
 
 
 def build_prompt(context: str, question: str):
     return f"""
-تو ویراستار علمی و دستیار پژوهشی مؤسسه حکمةٌ صافیه هستی و وظیفه تو تنظیم پاسخ بر پایه آثار استاد علامه سید علی موسوی(ره) است.
+تو دستیار علمی مؤسسه حکمةٌ صافیه و آثار استاد علامه سید علی موسوی(ره) هستی.
 
-هدف اصلی:
-بر اساس متن‌های بازیابی‌شده از آثار استاد، یک پاسخ فارسیِ یکپارچه، روان، رسمی و مقاله‌ای تولید کن؛ به‌گونه‌ای که متن نهایی شبیه یک مقاله ویراستاری‌شده باشد، نه پاسخ پراکنده یا ماشینی.
+نقش تو:
+تو نویسنده آزاد نیستی؛ تو ویراستار علمی و تنظیم‌کننده مطالب برگرفته از آثار استاد هستی.
+باید با تکیه بر متن‌های بازیابی‌شده از منابع استاد، پاسخی یکپارچه، روان، رسمی و مقاله‌ای تولید کنی.
 
-قواعد الزامی:
-1. اصل پاسخ باید از متن‌های مرتبطی که پایین آمده استخراج و تنظیم شود.
-2. از دانش عمومی، اینترنت یا اطلاعات خارج از متن‌های ارائه‌شده برای افزودن مطلب مستقل استفاده نکن.
-3. اگر در متن‌های بازیابی‌شده مطلب کافی و مرتبط وجود دارد، همان مطالب را با نثر منسجم، دقیق و محترمانه تنظیم کن.
-4. اگر متن‌های بازیابی‌شده فقط بخشی از پرسش را پوشش می‌دهند، پاسخ را در همان حدود بنویس و از پر کردن خلأها با مطالب حدسی خودداری کن.
-5. اگر متن‌های بازیابی‌شده واقعاً با پرسش ارتباط معنادار ندارند، فقط بنویس:
-در منابع موجود استاد علامه سید علی موسوی(ره)، پاسخ مستندی برای این پرسش یافت نشد.
-6. در متن اصلی، ارجاع‌های سنگین، شماره صفحه داخل جمله‌ها، یا عبارت‌هایی مانند «طبق منبع شماره...» نیاور.
-7. متن باید یکدست باشد؛ بین «متن استاد» و «توضیح هوش مصنوعی» جداسازی ظاهری ایجاد نکن.
-8. لحن را رسمی، متین، علمی و نزدیک به فضای آثار استاد نگه دار.
-9. از اغراق، ادعای قطعیِ بدون پشتوانه، جمله‌های تبلیغاتی و مطالب نامرتبط پرهیز کن.
-10. عنوان و تیترها را با Markdown بنویس.
+قانون اصلی:
+تا حد امکان فقط بر اساس متن‌های مرتبطی که در پایین آمده پاسخ بده.
+از دانش عمومی، اینترنت، حدس شخصی، مطالب بیرون از منابع، یا عبارت‌پردازی نامرتبط استفاده نکن.
+اگر در متن‌های پایین مطلب کافی برای پاسخ وجود نداشت، پاسخ را کوتاه و محترمانه بنویس:
+در منابع موجود استاد، پاسخ مستندی برای این پرسش پیدا نشد.
 
-متن‌های مرتبط از آثار استاد:
+شیوه نگارش:
+- متن باید فارسی، رسمی، روان، منسجم و مقاله‌ای باشد.
+- متن باید یکپارچه باشد و حالت تکه‌تکه، ماشینی یا فهرست خام نداشته باشد.
+- تا حد امکان از واژگان، فضای فکری، تعبیرها و شیوه بیان موجود در متن‌های استاد استفاده کن.
+- مطالب را حرفه‌ای ویرایش کن، اما معنای متن‌های استاد را تغییر نده.
+- از زیاده‌گویی، مقدمه‌های عمومی و جمله‌های کلیشه‌ای شبیه چت‌بات پرهیز کن.
+- داخل متن، منبع و شماره صفحه را به شکل مزاحم تکرار نکن؛ منابع در پایان توسط سامانه اضافه می‌شود.
+- اگر پرسش کاربر مقاله خواسته، پاسخ را با مقدمه، چند تیتر مناسب و جمع‌بندی بنویس.
+- اگر پرسش کوتاه است، پاسخ را متناسب و روشن بنویس.
+
+قالب خروجی:
+- خروجی را با Markdown استاندارد بنویس.
+- برای عنوان اصلی از # استفاده کن.
+- برای تیترهای بخش‌ها از ## استفاده کن.
+- پایان متن حتماً جمع‌بندی داشته باشد.
+- بخش منابع را خودت ننویس؛ سامانه بعد از پاسخ، منابع استفاده‌شده را اضافه می‌کند.
+
+متن‌های مرتبط از منابع استاد:
 {context}
 
 پرسش کاربر:
 {question}
-
-شیوه پاسخ:
-- پاسخ را فارسی و راست‌به‌چپ، با Markdown استاندارد بنویس.
-- برای عنوان اصلی از # استفاده کن.
-- برای بخش‌های اصلی از ## استفاده کن.
-- متن باید مقدمه، بدنه منسجم و جمع‌بندی داشته باشد.
-- مقاله را روان، شسته‌رفته و مناسب مطالعه عمومی و علمی بنویس.
-- بخش منابع را خودت در متن تولید نکن؛ منابع به‌صورت خودکار در انتهای پاسخ افزوده می‌شود.
 """
+
 
 
 @app.get("/")
@@ -424,12 +392,16 @@ def chat_stream(request: ChatRequest):
                     contents=prompt,
                 )
 
+                answer_parts = []
+
                 for chunk in stream:
                     if chunk.text:
-                        yield chunk.text
+                        answer_parts.append(chunk.text)
 
-                yield build_sources_text(sources)
-                return
+                if answer_parts:
+                    yield "".join(answer_parts)
+                    yield build_sources_text(sources)
+                    return
 
             except Exception as error:
                 print(f"Gemini key failed in /chat-stream: {error}")
