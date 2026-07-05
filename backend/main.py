@@ -294,29 +294,46 @@ async def upload_pdf(file: UploadFile = File(...)):
 
 
 def get_context_and_sources(question: str):
+    collection_data = collection.get()
+    total_chunks = len(collection_data.get("ids", []))
+
+    if total_chunks == 0:
+        return "", [], []
+
+    search_limit = min(total_chunks, 300)
+
     documents, metadatas = smart_search(
         collection=collection,
         question=question,
-        n_results=18,
+        n_results=search_limit,
     )
 
+    grouped = {}
     sources = []
+    selected_documents = []
 
-    for metadata in metadatas:
+    for document, metadata in zip(documents, metadatas):
         filename = metadata.get("filename", "منبع نامشخص")
         page = metadata.get("page", 0)
 
-        item = {
-            "filename": filename,
-            "page": page,
-        }
+        if filename not in grouped:
+            grouped[filename] = 0
 
-        if item not in sources:
-            sources.append(item)
+        if grouped[filename] < 5:
+            selected_documents.append(document)
+            grouped[filename] += 1
 
-    context = "\n\n".join(documents)
+            source_item = {
+                "filename": filename,
+                "page": page,
+            }
 
-    return context, sources, documents
+            if source_item not in sources:
+                sources.append(source_item)
+
+    context = "\n\n".join(selected_documents)
+
+    return context, sources, selected_documents
 
 
 @app.post("/chat")
