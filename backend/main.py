@@ -187,13 +187,44 @@ def clean_source_name(filename: str):
     return f"{name}، مقاله‌ای برگرفته از سایت استاد علامه سید علی موسوی(ره)"
 
 
+def compact_page_ranges(pages):
+    valid_pages = sorted({int(page) for page in pages if page})
+
+    if not valid_pages:
+        return ""
+
+    ranges = []
+    start = valid_pages[0]
+    previous = valid_pages[0]
+
+    for page in valid_pages[1:]:
+        if page == previous + 1:
+            previous = page
+            continue
+
+        if start == previous:
+            ranges.append(str(start))
+        else:
+            ranges.append(f"{start} تا {previous}")
+
+        start = page
+        previous = page
+
+    if start == previous:
+        ranges.append(str(start))
+    else:
+        ranges.append(f"{start} تا {previous}")
+
+    return "، ".join(ranges)
+
+
 def build_sources_text(sources):
     if not sources:
         return ""
 
-    cleaned_sources = []
+    grouped_sources = {}
 
-    for source in sources[:5]:
+    for source in sources[:8]:
         if isinstance(source, dict):
             filename = source.get("filename", "منبع نامشخص")
             page = source.get("page", 0)
@@ -203,50 +234,61 @@ def build_sources_text(sources):
 
         cleaned = clean_source_name(filename)
 
+        if cleaned not in grouped_sources:
+            grouped_sources[cleaned] = set()
+
         if page:
-            cleaned = f"{cleaned}، صفحه {page}"
+            grouped_sources[cleaned].add(page)
 
-        if cleaned not in cleaned_sources:
-            cleaned_sources.append(cleaned)
-
-    if not cleaned_sources:
+    if not grouped_sources:
         return ""
 
-    text = "\n\n## منابع استفاده‌شده\n\n"
+    text = "\n\n## منابع مورد استفاده\n\n"
 
-    for item in cleaned_sources:
-        text += f"- {item}\n"
+    for source_name, pages in grouped_sources.items():
+        page_text = compact_page_ranges(pages)
+
+        if page_text:
+            text += f"- {source_name}، صفحات {page_text}\n"
+        else:
+            text += f"- {source_name}\n"
 
     return text
 
 
 def build_prompt(context: str, question: str):
     return f"""
-تو دستیار علمی مؤسسه حکمةٌ صافیه و آثار استاد علامه سید علی موسوی(ره) هستی.
+تو ویراستار علمی و دستیار پژوهشی مؤسسه حکمةٌ صافیه هستی و وظیفه تو تنظیم پاسخ بر پایه آثار استاد علامه سید علی موسوی(ره) است.
 
-قانون اصلی:
-فقط و فقط بر اساس متن‌های استاد که در پایین آمده پاسخ بده.
-از دانش عمومی خودت استفاده نکن.
-از اینترنت یا اطلاعات خارج از فایل‌ها استفاده نکن.
+هدف اصلی:
+بر اساس متن‌های بازیابی‌شده از آثار استاد، یک پاسخ فارسیِ یکپارچه، روان، رسمی و مقاله‌ای تولید کن؛ به‌گونه‌ای که متن نهایی شبیه یک مقاله ویراستاری‌شده باشد، نه پاسخ پراکنده یا ماشینی.
 
-اگر متن‌های پایین با سؤال کاربر ارتباط دارند، حتماً بر اساس همان‌ها پاسخ بده.
-فقط اگر متن‌های پایین واقعاً هیچ ارتباطی با سؤال نداشتند، بنویس:
-در منابع موجود استاد، پاسخ مستندی برای این پرسش پیدا نشد.
+قواعد الزامی:
+1. اصل پاسخ باید از متن‌های مرتبطی که پایین آمده استخراج و تنظیم شود.
+2. از دانش عمومی، اینترنت یا اطلاعات خارج از متن‌های ارائه‌شده برای افزودن مطلب مستقل استفاده نکن.
+3. اگر در متن‌های بازیابی‌شده مطلب کافی و مرتبط وجود دارد، همان مطالب را با نثر منسجم، دقیق و محترمانه تنظیم کن.
+4. اگر متن‌های بازیابی‌شده فقط بخشی از پرسش را پوشش می‌دهند، پاسخ را در همان حدود بنویس و از پر کردن خلأها با مطالب حدسی خودداری کن.
+5. اگر متن‌های بازیابی‌شده واقعاً با پرسش ارتباط معنادار ندارند، فقط بنویس:
+در منابع موجود استاد علامه سید علی موسوی(ره)، پاسخ مستندی برای این پرسش یافت نشد.
+6. در متن اصلی، ارجاع‌های سنگین، شماره صفحه داخل جمله‌ها، یا عبارت‌هایی مانند «طبق منبع شماره...» نیاور.
+7. متن باید یکدست باشد؛ بین «متن استاد» و «توضیح هوش مصنوعی» جداسازی ظاهری ایجاد نکن.
+8. لحن را رسمی، متین، علمی و نزدیک به فضای آثار استاد نگه دار.
+9. از اغراق، ادعای قطعیِ بدون پشتوانه، جمله‌های تبلیغاتی و مطالب نامرتبط پرهیز کن.
+10. عنوان و تیترها را با Markdown بنویس.
 
-متن‌های مرتبط از منابع استاد:
+متن‌های مرتبط از آثار استاد:
 {context}
 
 پرسش کاربر:
 {question}
 
 شیوه پاسخ:
-پاسخ را فارسی، رسمی، روان و مقاله‌ای بنویس.
-خروجی را با Markdown استاندارد بنویس.
-برای عنوان اصلی از # استفاده کن.
-برای تیترهای بخش‌ها از ## استفاده کن.
-حتماً مقدمه داشته باشد.
-حتماً چند تیتر مناسب و متنوع داشته باشد.
-حتماً جمع‌بندی داشته باشد.
+- پاسخ را فارسی و راست‌به‌چپ، با Markdown استاندارد بنویس.
+- برای عنوان اصلی از # استفاده کن.
+- برای بخش‌های اصلی از ## استفاده کن.
+- متن باید مقدمه، بدنه منسجم و جمع‌بندی داشته باشد.
+- مقاله را روان، شسته‌رفته و مناسب مطالعه عمومی و علمی بنویس.
+- بخش منابع را خودت در متن تولید نکن؛ منابع به‌صورت خودکار در انتهای پاسخ افزوده می‌شود.
 """
 
 
