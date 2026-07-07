@@ -620,11 +620,23 @@ async def admin_upload_document(file: UploadFile = File(...)):
 
         session.commit()
 
-    return {
-        "message": "فایل با موفقیت آپلود و در دیتابیس ذخیره شد.",
-        "filename": file.filename,
-    }
+    pages_data, pages_count = extract_text_from_pdf(file_path)
+    extracted_text = pages_to_text(pages_data)
 
+    chunks_saved, total_chunks = save_chunks_to_collection(
+        file.filename,
+        extracted_text,
+        skip_existing=True,
+    )
+
+    return {
+        "message": "فایل با موفقیت آپلود، ذخیره و وارد پایگاه جستجو شد.",
+        "filename": file.filename,
+        "pages": pages_count,
+        "chunks_saved": chunks_saved,
+        "total_chunks": total_chunks,
+        "indexed": True,
+    }
 
 @app.get("/admin/documents")
 def admin_list_documents():
