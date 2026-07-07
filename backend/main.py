@@ -293,6 +293,136 @@ async def upload_pdf(file: UploadFile = File(...)):
     }
 
 
+
+def normalize_persian_text(value: str):
+    text = str(value or "")
+    replacements = {
+        "ي": "ی",
+        "ك": "ک",
+        "ۀ": "ه",
+        "ة": "ه",
+        "ؤ": "و",
+        "إ": "ا",
+        "أ": "ا",
+        "آ": "ا",
+        "ٱ": "ا",
+        "ى": "ی",
+        "‌": " ",
+        "\u200c": " ",
+        "\u200f": " ",
+        "\u200e": " ",
+    }
+
+    for old, new_char in replacements.items():
+        text = text.replace(old, new_char)
+
+    text = re.sub(r"[\u064B-\u065F\u0670]", "", text)
+    text = re.sub(r"[^\w\s\u0600-\u06FF]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def extract_search_terms(question: str):
+    normalized = normalize_persian_text(question)
+
+    stop_words = {
+        "در", "از", "به", "با", "که", "را", "و", "یا", "این", "آن", "برای",
+        "کدام", "منبع", "استاد", "گفتند", "گفته", "آمده", "است", "هست",
+        "صفحه", "جلد", "کتاب", "فایل", "نقل", "کن", "چی", "چه", "مطلب",
+        "موجود", "درباره", "توی", "داخل", "عبارت",
+    }
+
+    words = [
+        word
+        for word in normalized.split()
+        if len(word) >= 3 and word not in stop_words and not word.isdigit()
+    ]
+
+    phrases = []
+
+    quoted_phrases = re.findall(r"[«\"]([^»\"]+)[»\"]", question)
+    for phrase in quoted_phrases:
+        phrase = normalize_persian_text(phrase)
+        if phrase:
+            phrases.append(phrase)
+
+    for size in (4, 3, 2):
+        for index in range(0, max(len(words) - size + 1, 0)):
+            phrase = " ".join(words[index:index + size])
+            if phrase and phrase not in phrases:
+                phrases.append(phrase)
+
+    return words, phrases
+
+
+def extract_requested_page(question: str):
+    normalized = normalize_persian_text(question)
+    match = re.search(r"صفحه\s+(\d+)", normalized)
+    if match:
+        return int(match.group(1))
+    return None
+
+
+def exact_keyword_search(question: str, max_results: int = 40):
+    words, phrases = extract_search_terms(question)
+    requested_page = extract_requested_page(question)
+
+    if not words and not phrases and requested_page is None:
+        return []
+
+    data = collection.get(include=["documents", "metadatas"])
+    ids = data.get("ids", [])
+    documents = data.get("documents", [])
+    metadatas = data.get("metadatas", [])
+
+    matches = []
+
+    for item_id, document, metadata in zip(ids, documents, metadatas):
+        filename = metadata.get("filename", "")
+        page = metadata.get("page", 0)
+
+        document_normalized = normalize_persian_text(document)
+        filename_normalized = normalize_persian_text(filename)
+
+        score = 0
+
+        for phrase in phrases:
+            if phrase and phrase in document_normalized:
+                score += 80 + len(phrase)
+            if phrase and phrase in filename_normalized:
+                score += 120 + len(phrase)
+
+        for word in words:
+            if word in document_normalized:
+                score += 15
+            if word in filename_normalized:
+                score += 80
+
+        if requested_page is not None:
+            try:
+                page_number = int(page or 0)
+            except Exception:
+                page_number = 0
+
+            if page_number == requested_page:
+                score += 150
+            elif abs(page_number - requested_page) <= 1:
+                score += 50
+
+        if score > 0:
+            matches.append(
+                {
+                    "id": item_id,
+                    "document": document,
+                    "metadata": metadata,
+                    "score": score,
+                }
+            )
+
+    matches.sort(key=lambda item: item["score"], reverse=True)
+    return matches[:max_results]
+
+
 def get_context_and_sources(question: str):
     collection_data = collection.get()
     total_chunks = len(collection_data.get("ids", []))
@@ -302,24 +432,60 @@ def get_context_and_sources(question: str):
 
     search_limit = min(total_chunks, 80)
 
-    documents, metadatas = smart_search(
+    exact_items = exact_keyword_search(question, max_results=50)
+
+    semantic_documents, semantic_metadatas = smart_search(
         collection=collection,
         question=question,
         n_results=search_limit,
+    )
+
+    combined_items = []
+
+    for item in exact_items:
+        combined_items.append(item)
+
+    for document, metadata in zip(semantic_documents, semantic_metadatas):
+        combined_items.append(
+            {
+                "id": f"{metadata.get('filename', '')}-{metadata.get('chunk_index', '')}",
+                "document": document,
+                "metadata": metadata,
+                "score": 0,
+            }
+        )
+
+    unique_items = {}
+
+    for item in combined_items:
+        metadata = item.get("metadata", {})
+        key = f"{metadata.get('filename', '')}-{metadata.get('chunk_index', '')}"
+
+        if key not in unique_items or item.get("score", 0) > unique_items[key].get("score", 0):
+            unique_items[key] = item
+
+    sorted_items = sorted(
+        unique_items.values(),
+        key=lambda item: item.get("score", 0),
+        reverse=True,
     )
 
     grouped = {}
     sources = []
     selected_documents = []
 
-    for document, metadata in zip(documents, metadatas):
+    for item in sorted_items:
+        document = item.get("document", "")
+        metadata = item.get("metadata", {})
         filename = metadata.get("filename", "منبع نامشخص")
         page = metadata.get("page", 0)
 
         if filename not in grouped:
             grouped[filename] = 0
 
-        if grouped[filename] < 3:
+        per_file_limit = 6 if item.get("score", 0) > 0 else 3
+
+        if grouped[filename] < per_file_limit:
             selected_documents.append(document)
             grouped[filename] += 1
 
@@ -330,6 +496,9 @@ def get_context_and_sources(question: str):
 
             if source_item not in sources:
                 sources.append(source_item)
+
+        if len(selected_documents) >= 24:
+            break
 
     context = "\n\n".join(selected_documents)
 
@@ -620,23 +789,11 @@ async def admin_upload_document(file: UploadFile = File(...)):
 
         session.commit()
 
-    pages_data, pages_count = extract_text_from_pdf(file_path)
-    extracted_text = pages_to_text(pages_data)
-
-    chunks_saved, total_chunks = save_chunks_to_collection(
-        file.filename,
-        extracted_text,
-        skip_existing=True,
-    )
-
     return {
-        "message": "فایل با موفقیت آپلود، ذخیره و وارد پایگاه جستجو شد.",
+        "message": "فایل با موفقیت آپلود و در دیتابیس ذخیره شد.",
         "filename": file.filename,
-        "pages": pages_count,
-        "chunks_saved": chunks_saved,
-        "total_chunks": total_chunks,
-        "indexed": True,
     }
+
 
 @app.get("/admin/documents")
 def admin_list_documents():
