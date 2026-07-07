@@ -64,21 +64,30 @@ class ChatRequest(BaseModel):
     message: str
 
 
-def split_text(text: str, chunk_size: int = 1800):
-    paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
+def split_text(text: str, chunk_size: int = 1200, overlap: int = 250):
+    """Split text into reliable searchable chunks with overlap."""
+    text = re.sub(r"\s+", " ", str(text or "")).strip()
+
+    if not text:
+        return []
+
+    if len(text) <= chunk_size:
+        return [text]
+
     chunks = []
-    current_chunk = ""
+    start = 0
 
-    for paragraph in paragraphs:
-        if len(current_chunk) + len(paragraph) <= chunk_size:
-            current_chunk += "\n\n" + paragraph
-        else:
-            if current_chunk.strip():
-                chunks.append(current_chunk.strip())
-            current_chunk = paragraph
+    while start < len(text):
+        end = min(start + chunk_size, len(text))
+        chunk = text[start:end].strip()
 
-    if current_chunk.strip():
-        chunks.append(current_chunk.strip())
+        if chunk:
+            chunks.append(chunk)
+
+        if end >= len(text):
+            break
+
+        start = max(end - overlap, start + 1)
 
     return chunks
 
@@ -104,32 +113,84 @@ def pages_to_text(pages_data):
     return extracted_text
 
 
+def get_existing_chunk_ids_for_file(filename: str):
+    data = collection.get(include=["metadatas"])
+    ids = data.get("ids", [])
+    metadatas = data.get("metadatas", [])
+
+    return [
+        item_id
+        for item_id, metadata in zip(ids, metadatas)
+        if metadata.get("filename") == filename
+    ]
+
+
+def delete_chunks_for_file(filename: str):
+    ids_to_delete = get_existing_chunk_ids_for_file(filename)
+
+    if ids_to_delete:
+        collection.delete(ids=ids_to_delete)
+
+    return len(ids_to_delete)
+
+
+def extract_page_blocks(extracted_text: str):
+    """Return [(page_number, page_text), ...] from the [Page N] format."""
+    text = str(extracted_text or "")
+    pattern = re.compile(r"\[Page\s+(\d+)\]\s*")
+    matches = list(pattern.finditer(text))
+
+    if not matches:
+        return [(0, text)] if text.strip() else []
+
+    pages = []
+
+    for index, match in enumerate(matches):
+        page_number = int(match.group(1))
+        start = match.end()
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        page_text = text[start:end].strip()
+
+        if page_text:
+            pages.append((page_number, page_text))
+
+    return pages
+
+
 def save_chunks_to_collection(filename: str, extracted_text: str, skip_existing: bool = True):
-    chunks = split_text(extracted_text)
+    page_blocks = extract_page_blocks(extracted_text)
     existing_ids = set(collection.get()["ids"]) if skip_existing else set()
 
     ids = []
     documents = []
     metadatas = []
+    total_chunks = 0
 
-    for index, chunk in enumerate(chunks):
-        chunk_id = f"{filename}-{index}"
+    for page_number, page_text in page_blocks:
+        page_chunks = split_text(page_text, chunk_size=1200, overlap=250)
+        total_chunks += len(page_chunks)
 
-        if chunk_id in existing_ids:
-            continue
+        for chunk_index, chunk in enumerate(page_chunks):
+            chunk_id = f"{filename}-page-{page_number}-chunk-{chunk_index}"
 
-        page_match = re.search(r"\[Page\s+(\d+)\]", chunk)
-        page_number = int(page_match.group(1)) if page_match else 0
+            if chunk_id in existing_ids:
+                continue
 
-        ids.append(chunk_id)
-        documents.append(chunk)
-        metadatas.append(
-            {
-                "filename": filename,
-                "chunk_index": index,
-                "page": page_number,
-            }
-        )
+            searchable_chunk = (
+                f"نام فایل: {filename}\n"
+                f"صفحه: {page_number}\n"
+                f"متن:\n{chunk}"
+            )
+
+            ids.append(chunk_id)
+            documents.append(searchable_chunk)
+            metadatas.append(
+                {
+                    "filename": filename,
+                    "chunk_index": chunk_index,
+                    "page": page_number,
+                }
+            )
 
     if documents:
         collection.add(
@@ -138,7 +199,7 @@ def save_chunks_to_collection(filename: str, extracted_text: str, skip_existing:
             metadatas=metadatas,
         )
 
-    return len(documents), len(chunks)
+    return len(documents), total_chunks
 
 
 def clean_source_name(filename: str):
@@ -193,7 +254,7 @@ def build_sources_text(sources):
 
     cleaned_sources = []
 
-    for source in sources[:5]:
+    for source in sources[:20]:
         if isinstance(source, dict):
             filename = source.get("filename", "منبع نامشخص")
             page = source.get("page", 0)
@@ -224,32 +285,22 @@ def build_prompt(context: str, question: str):
     return f"""
 تو دستیار علمی مؤسسه حکمةٌ صافیه و آثار استاد علامه سید علی موسوی(ره) هستی.
 
-نقش تو:
-تو نویسنده آزاد نیستی؛ تو ویراستار علمی و تنظیم‌کننده مطالب برگرفته از آثار استاد هستی.
-باید با تکیه بر متن‌های بازیابی‌شده از منابع استاد، پاسخی یکپارچه، روان، رسمی و مقاله‌ای تولید کنی.
+قانون قطعی امانت:
+- فقط بر اساس «متن‌های مرتبط از منابع استاد» پاسخ بده.
+- اگر یک عبارت، جمله، کلمه، صفحه یا عنوان منبع در متن‌های پایین آمده، آن را نادیده نگیر.
+- اگر کاربر پرسیده «در کدام فایل/صفحه آمده؟»، اول نام منبع‌ها و صفحه‌ها را مرتب فهرست کن و سپس توضیح کوتاه بده.
+- اگر کاربر فقط یک کلمه یا عبارت داده، تمام موارد مرتبط موجود در متن‌های بازیابی‌شده را دسته‌بندی کن.
+- اگر کاربر مقاله خواسته، از متن‌های بازیابی‌شده مقاله‌ای منسجم، رسمی و مستند بنویس.
+- اگر پاسخ دقیق در متن‌ها هست، هرگز ننویس «پاسخ مستندی پیدا نشد».
+- فقط زمانی بنویس «در منابع موجود استاد، پاسخ مستندی برای این پرسش پیدا نشد» که واقعاً هیچ نشانه مرتبطی در متن‌های پایین وجود نداشته باشد.
 
-قانون اصلی:
-تا حد امکان فقط بر اساس متن‌های مرتبطی که در پایین آمده پاسخ بده.
-از دانش عمومی، اینترنت، حدس شخصی، مطالب بیرون از منابع، یا عبارت‌پردازی نامرتبط استفاده نکن.
-اگر در متن‌های پایین مطلب کافی برای پاسخ وجود نداشت، پاسخ را کوتاه و محترمانه بنویس:
-در منابع موجود استاد، پاسخ مستندی برای این پرسش پیدا نشد.
-
-شیوه نگارش:
-- متن باید فارسی، رسمی، روان، منسجم و مقاله‌ای باشد.
-- متن باید یکپارچه باشد و حالت تکه‌تکه، ماشینی یا فهرست خام نداشته باشد.
-- تا حد امکان از واژگان، فضای فکری، تعبیرها و شیوه بیان موجود در متن‌های استاد استفاده کن.
-- مطالب را حرفه‌ای ویرایش کن، اما معنای متن‌های استاد را تغییر نده.
-- از زیاده‌گویی، مقدمه‌های عمومی و جمله‌های کلیشه‌ای شبیه چت‌بات پرهیز کن.
-- داخل متن، منبع و شماره صفحه را به شکل مزاحم تکرار نکن؛ منابع در پایان توسط سامانه اضافه می‌شود.
-- اگر پرسش کاربر مقاله خواسته، پاسخ را با مقدمه، چند تیتر مناسب و جمع‌بندی بنویس.
-- اگر پرسش کوتاه است، پاسخ را متناسب و روشن بنویس.
-
-قالب خروجی:
-- خروجی را با Markdown استاندارد بنویس.
-- برای عنوان اصلی از # استفاده کن.
-- برای تیترهای بخش‌ها از ## استفاده کن.
-- پایان متن حتماً جمع‌بندی داشته باشد.
-- بخش منابع را خودت ننویس؛ سامانه بعد از پاسخ، منابع استفاده‌شده را اضافه می‌کند.
+شیوه پاسخ:
+- فارسی، رسمی، روان و دقیق بنویس.
+- برای پاسخ‌های جستجویی، از بخش‌های «نتیجه جستجو»، «عبارت/نکته یافت‌شده»، و «منابع» استفاده کن.
+- برای پاسخ‌های مقاله‌ای، مقدمه، تیترهای منظم و جمع‌بندی داشته باش.
+- اگر عبارت عیناً در متن آمده، همان عبارت را کوتاه و دقیق نقل کن.
+- منبع و صفحه را داخل متن بی‌رویه تکرار نکن؛ سامانه در پایان منابع را اضافه می‌کند.
+- بخش «منابع استفاده‌شده» را خودت ننویس.
 
 متن‌های مرتبط از منابع استاد:
 {context}
@@ -257,7 +308,6 @@ def build_prompt(context: str, question: str):
 پرسش کاربر:
 {question}
 """
-
 
 
 @app.get("/")
@@ -277,10 +327,11 @@ async def upload_pdf(file: UploadFile = File(...)):
     pages_data, pages_count = extract_text_from_pdf(file_path)
     extracted_text = pages_to_text(pages_data)
 
+    delete_chunks_for_file(file.filename)
     chunks_saved, total_chunks = save_chunks_to_collection(
         file.filename,
         extracted_text,
-        skip_existing=True,
+        skip_existing=False,
     )
 
     return {
@@ -340,7 +391,7 @@ def extract_search_terms(question: str):
 
     phrases = []
 
-    quoted_phrases = re.findall(r"[«\"]([^»\"]+)[»\"]", question)
+    quoted_phrases = re.findall(r'[«"]([^»"]+)[»"]', question)
     for phrase in quoted_phrases:
         phrase = normalize_persian_text(phrase)
         if phrase:
@@ -546,7 +597,7 @@ def chat(request: ChatRequest):
 
     return {
         "answer": answer,
-        "sources": [clean_source_name(source.get("filename", "")) for source in sources[:5]],
+        "sources": [clean_source_name(source.get("filename", "")) for source in sources[:20]],
     }
 
 
@@ -654,6 +705,10 @@ def rebuild_knowledge_base():
     if not pdf_files:
         return {"message": "هیچ فایل PDF داخل پوشه documents پیدا نشد."}
 
+    existing_ids = collection.get().get("ids", [])
+    if existing_ids:
+        collection.delete(ids=existing_ids)
+
     total_files = 0
     total_chunks_saved = 0
     total_chunks_found = 0
@@ -665,7 +720,7 @@ def rebuild_knowledge_base():
         chunks_saved, total_chunks = save_chunks_to_collection(
             pdf_file.name,
             extracted_text,
-            skip_existing=True,
+            skip_existing=False,
         )
 
         total_files += 1
@@ -673,10 +728,11 @@ def rebuild_knowledge_base():
         total_chunks_found += total_chunks
 
     return {
-        "message": "پایگاه اطلاعاتی با موفقیت بروزرسانی شد.",
+        "message": "پایگاه اطلاعاتی با موفقیت از نو ساخته شد.",
         "files_processed": total_files,
         "chunks_saved": total_chunks_saved,
         "chunks_found": total_chunks_found,
+        "deleted_old_chunks": len(existing_ids),
     }
 
 
@@ -789,9 +845,24 @@ async def admin_upload_document(file: UploadFile = File(...)):
 
         session.commit()
 
+    pages_data, pages_count = extract_text_from_pdf(file_path)
+    extracted_text = pages_to_text(pages_data)
+
+    deleted_chunks = delete_chunks_for_file(file.filename)
+    chunks_saved, total_chunks = save_chunks_to_collection(
+        file.filename,
+        extracted_text,
+        skip_existing=False,
+    )
+
     return {
-        "message": "فایل با موفقیت آپلود و در دیتابیس ذخیره شد.",
+        "message": "فایل با موفقیت آپلود، ذخیره و وارد پایگاه جستجو شد.",
         "filename": file.filename,
+        "pages": pages_count,
+        "deleted_old_chunks": deleted_chunks,
+        "chunks_saved": chunks_saved,
+        "total_chunks": total_chunks,
+        "indexed": chunks_saved > 0,
     }
 
 
@@ -947,6 +1018,19 @@ def admin_dashboard():
         "chroma_ready": True,
         "database_ready": True,
         "knowledge_ready": len(chunks) > 0,
+    }
+
+
+
+@app.get("/admin/search-test")
+def admin_search_test(q: str):
+    context, sources, documents = get_context_and_sources(q)
+
+    return {
+        "query": q,
+        "results_count": len(documents),
+        "sources": sources[:20],
+        "preview": [doc[:500] for doc in documents[:10]],
     }
 
 @app.get("/admin/users")
