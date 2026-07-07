@@ -5,21 +5,19 @@ PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹"
 ENGLISH_DIGITS = "0123456789"
 
 
-def fa_to_en_digits(text: str) -> str:
-    text = str(text or "")
+def fa_to_en_digits(text: str):
     for fa, en in zip(PERSIAN_DIGITS, ENGLISH_DIGITS):
         text = text.replace(fa, en)
     return text
 
 
-def normalize_text(text: str) -> str:
+def normalize_text(text: str):
     text = str(text or "")
     text = fa_to_en_digits(text)
     text = text.replace("ي", "ی").replace("ك", "ک")
     text = text.replace("ۀ", "ه").replace("ة", "ه")
     text = text.replace("أ", "ا").replace("إ", "ا").replace("آ", "ا")
     text = re.sub(r"[ًٌٍَُِّْـ]", "", text)
-    text = re.sub(r"[^\w\sآ-ی]", " ", text)
     text = re.sub(r"\s+", " ", text)
     return text.strip().lower()
 
@@ -31,147 +29,167 @@ def extract_keywords(question: str):
         "در", "از", "به", "با", "برای", "را", "و", "یا", "که", "این", "آن",
         "یک", "کن", "کنید", "برام", "برایم", "تحقیق", "توضیح", "بده",
         "بگویید", "چیست", "است", "هست", "خصوص", "مورد", "نظر", "استاد",
-        "درباره", "راجع", "لطفا", "لطفاً", "میگه", "چی", "چه", "کدام",
-        "مطلب", "آمده", "فرمودند", "گفتند", "کردند", "تعبیر", "بررسی"
+        "درباره", "راجع", "لطفا", "لطفاً", "میگه", "چی", "استخراج"
     }
 
     words = re.findall(r"[\wآ-ی]+", text)
-    return [word for word in words if len(word) >= 2 and word not in stop_words]
+    return [w for w in words if len(w) > 2 and w not in stop_words]
 
 
-def keyword_score(text: str, keywords) -> int:
+def keyword_score(text: str, keywords: list[str]):
     normalized = normalize_text(text)
     score = 0
 
     for keyword in keywords:
-        if not keyword:
-            continue
-
         if keyword in normalized:
-            score += 25
-
-        # Stronger score for exact word boundary-like match
-        if re.search(rf"(^|\s){re.escape(keyword)}($|\s)", normalized):
-            score += 35
+            score += 20
 
     return score
 
 
-def phrase_score(text: str, question: str) -> int:
+def phrase_score(text: str, question: str):
     normalized_text = normalize_text(text)
     normalized_question = normalize_text(question)
+
     keywords = extract_keywords(question)
 
     score = 0
 
     if normalized_question and normalized_question in normalized_text:
-        score += 300
+        score += 200
 
     if len(keywords) >= 2:
         phrase = " ".join(keywords)
         if phrase in normalized_text:
-            score += 220
+            score += 150
 
     return score
 
 
-def file_score(metadata, question: str, keywords) -> int:
-    filename = ""
-    if isinstance(metadata, dict):
-        filename = metadata.get("filename", "")
-
-    return (
-        keyword_score(filename, keywords)
-        + phrase_score(filename, question)
-    )
-
-
-def make_key(item):
-    metadata = item.get("metadata") or {}
-    filename = metadata.get("filename", "")
-    chunk_index = metadata.get("chunk_index", "")
-    page = metadata.get("page", "")
-
-    if filename or chunk_index != "":
-        return f"{filename}-{chunk_index}-{page}"
-
-    return str(hash(item.get("document", "")))
-
-
-def add_neighbor_chunks(collection, base_item, window=1, score=45):
-    metadata = base_item.get("metadata") or {}
+def get_neighbor_chunks(collection, metadata, window=3, score=80):
     filename = metadata.get("filename")
     chunk_index = metadata.get("chunk_index")
 
     if filename is None or chunk_index is None:
         return []
 
-    try:
-        chunk_index = int(chunk_index)
-    except Exception:
-        return []
+    neighbor_ids = []
 
-    ids = []
-    for index in range(max(0, chunk_index - window), chunk_index + window + 1):
-        ids.append(f"{filename}-{index}")
+    for i in range(int(chunk_index) - window, int(chunk_index) + window + 1):
+        if i >= 0:
+            neighbor_ids.append(f"{filename}-{i}")
 
     try:
         data = collection.get(
-            ids=ids,
+            ids=neighbor_ids,
             include=["documents", "metadatas"],
         )
 
-        docs = data.get("documents", []) or []
-        metas = data.get("metadatas", []) or []
+        docs = data.get("documents", [])
+        metas = data.get("metadatas", [])
 
         return [
             {
                 "document": doc,
-                "metadata": meta or {},
+                "metadata": meta,
                 "score": score,
             }
             for doc, meta in zip(docs, metas)
-            if doc
         ]
     except Exception:
         return []
 
 
-def smart_search(collection, question: str, n_results: int = 18):
-    """
-    Stable hybrid search for the Professor Mousavi project.
+def extract_page_hints(text: str, question: str):
+    normalized_text = normalize_text(text)
+    keywords = extract_keywords(question)
 
-    It keeps the old safe behavior:
-    - semantic Chroma search first
-    - then exact keyword/phrase search across stored chunks
-    - no upload/indexing logic is touched
-    - all risky operations are protected with try/except
+    pages = set()
 
-    Returns:
-        documents, metadatas
-    """
-    safe_limit = max(1, min(int(n_results or 18), 40))
+    for keyword in keywords:
+        index = normalized_text.find(keyword)
+
+        if index == -1:
+            continue
+
+        start = max(0, index - 120)
+        end = min(len(normalized_text), index + 180)
+        window_text = normalized_text[start:end]
+
+        numbers = re.findall(r"\b\d{1,4}\b", window_text)
+
+        for number in numbers:
+            page = int(number)
+            if 1 <= page <= 3000:
+                pages.add(page)
+
+    return sorted(pages)
+
+
+def get_chunks_by_pages(collection, filename: str, pages: list[int], score=180):
+    if not pages:
+        return []
+
+    try:
+        data = collection.get(include=["documents", "metadatas"])
+        docs = data.get("documents", [])
+        metas = data.get("metadatas", [])
+    except Exception:
+        return []
+
+    results = []
+
+    target_pages = set()
+
+    for page in pages:
+        target_pages.add(page)
+        target_pages.add(page - 1)
+        target_pages.add(page + 1)
+
+    for doc, meta in zip(docs, metas):
+        if meta.get("filename") != filename:
+            continue
+
+        normalized_doc = fa_to_en_digits(str(doc))
+
+        for page in target_pages:
+            if page <= 0:
+                continue
+
+            if f"[Page {page}]" in normalized_doc:
+                results.append(
+                    {
+                        "document": doc,
+                        "metadata": meta,
+                        "score": score,
+                    }
+                )
+                break
+
+    return results
+
+
+def smart_search(collection, question: str, n_results: int = 22):
     keywords = extract_keywords(question)
     candidates = []
 
-    # 1) Semantic Chroma search
     try:
         semantic_results = collection.query(
             query_texts=[question],
-            n_results=safe_limit,
+            n_results=n_results,
             include=["documents", "metadatas"],
         )
 
-        semantic_docs = semantic_results.get("documents", [[]])[0] or []
-        semantic_metas = semantic_results.get("metadatas", [[]])[0] or []
+        semantic_docs = semantic_results.get("documents", [[]])[0]
+        semantic_metas = semantic_results.get("metadatas", [[]])[0]
 
         for doc, meta in zip(semantic_docs, semantic_metas):
-            meta = meta or {}
             score = (
-                100
+                40
                 + keyword_score(doc, keywords)
+                + keyword_score(meta.get("filename", ""), keywords)
                 + phrase_score(doc, question)
-                + file_score(meta, question, keywords)
+                + phrase_score(meta.get("filename", ""), question)
             )
 
             item = {
@@ -181,64 +199,65 @@ def smart_search(collection, question: str, n_results: int = 18):
             }
 
             candidates.append(item)
-            candidates.extend(add_neighbor_chunks(collection, item, window=1, score=55))
+            candidates.extend(get_neighbor_chunks(collection, meta, window=3, score=70))
 
-    except Exception as error:
-        print(f"smart_search semantic search failed: {error}")
+    except Exception:
+        pass
 
-    # 2) Exact keyword/phrase search across available chunks
-    # This is what helps one-word queries such as عطارد.
     try:
         all_data = collection.get(include=["documents", "metadatas"])
-        all_docs = all_data.get("documents", []) or []
-        all_metas = all_data.get("metadatas", []) or []
+        all_docs = all_data.get("documents", [])
+        all_metas = all_data.get("metadatas", [])
+    except Exception:
+        all_docs = []
+        all_metas = []
 
-        for doc, meta in zip(all_docs, all_metas):
-            meta = meta or {}
+    for doc, meta in zip(all_docs, all_metas):
+        file_name = meta.get("filename", "")
 
-            score = (
-                keyword_score(doc, keywords)
-                + phrase_score(doc, question)
-                + file_score(meta, question, keywords)
-            )
+        score = (
+            keyword_score(doc, keywords)
+            + keyword_score(file_name, keywords)
+            + phrase_score(doc, question)
+            + phrase_score(file_name, question)
+        )
 
-            if score <= 0:
-                continue
-
+        if score > 0:
             item = {
                 "document": doc,
                 "metadata": meta,
-                "score": score + 80,
+                "score": score,
             }
 
             candidates.append(item)
+            candidates.extend(get_neighbor_chunks(collection, meta, window=3, score=90))
 
-            # Add one neighbor on both sides for context, but keep it light.
-            if score >= 60:
-                candidates.extend(add_neighbor_chunks(collection, item, window=1, score=40))
+            page_hints = extract_page_hints(doc, question)
+            candidates.extend(
+                get_chunks_by_pages(
+                    collection=collection,
+                    filename=file_name,
+                    pages=page_hints,
+                    score=220,
+                )
+            )
 
-    except Exception as error:
-        print(f"smart_search exact search failed: {error}")
-
-    # 3) Deduplicate and sort
     unique = {}
 
     for item in candidates:
-        if not item.get("document"):
-            continue
-
-        key = make_key(item)
+        meta = item["metadata"]
+        key = meta.get("filename", "") + "-" + str(meta.get("chunk_index", ""))
 
         if key not in unique or item["score"] > unique[key]["score"]:
             unique[key] = item
 
     sorted_items = sorted(
         unique.values(),
-        key=lambda item: item.get("score", 0),
+        key=lambda x: x["score"],
         reverse=True,
     )
 
-    final_items = sorted_items[:safe_limit]
+    final_items = sorted_items[:n_results]
 
     documents = [item["document"] for item in final_items]
     metadatas = [item["metadata"] for item in final_items]
