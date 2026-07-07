@@ -224,30 +224,40 @@ def build_prompt(context: str, question: str):
     return f"""
 تو دستیار علمی مؤسسه حکمةٌ صافیه و آثار استاد علامه سید علی موسوی(ره) هستی.
 
-قانون اصلی:
-فقط و فقط بر اساس متن‌های استاد که در پایین آمده پاسخ بده.
-از دانش عمومی خودت استفاده نکن.
-از اینترنت یا اطلاعات خارج از فایل‌ها استفاده نکن.
+نقش تو:
+تو نویسنده آزاد نیستی؛ تو ویراستار علمی و تنظیم‌کننده مطالب برگرفته از آثار استاد هستی.
+باید با تکیه بر متن‌های بازیابی‌شده از منابع استاد، پاسخی یکپارچه، روان، رسمی و مقاله‌ای تولید کنی.
 
-اگر متن‌های پایین با سؤال کاربر ارتباط دارند، حتماً بر اساس همان‌ها پاسخ بده.
-فقط اگر متن‌های پایین واقعاً هیچ ارتباطی با سؤال نداشتند، بنویس:
+قانون اصلی:
+تا حد امکان فقط بر اساس متن‌های مرتبطی که در پایین آمده پاسخ بده.
+از دانش عمومی، اینترنت، حدس شخصی، مطالب بیرون از منابع، یا عبارت‌پردازی نامرتبط استفاده نکن.
+اگر در متن‌های پایین مطلب کافی برای پاسخ وجود نداشت، پاسخ را کوتاه و محترمانه بنویس:
 در منابع موجود استاد، پاسخ مستندی برای این پرسش پیدا نشد.
+
+شیوه نگارش:
+- متن باید فارسی، رسمی، روان، منسجم و مقاله‌ای باشد.
+- متن باید یکپارچه باشد و حالت تکه‌تکه، ماشینی یا فهرست خام نداشته باشد.
+- تا حد امکان از واژگان، فضای فکری، تعبیرها و شیوه بیان موجود در متن‌های استاد استفاده کن.
+- مطالب را حرفه‌ای ویرایش کن، اما معنای متن‌های استاد را تغییر نده.
+- از زیاده‌گویی، مقدمه‌های عمومی و جمله‌های کلیشه‌ای شبیه چت‌بات پرهیز کن.
+- داخل متن، منبع و شماره صفحه را به شکل مزاحم تکرار نکن؛ منابع در پایان توسط سامانه اضافه می‌شود.
+- اگر پرسش کاربر مقاله خواسته، پاسخ را با مقدمه، چند تیتر مناسب و جمع‌بندی بنویس.
+- اگر پرسش کوتاه است، پاسخ را متناسب و روشن بنویس.
+
+قالب خروجی:
+- خروجی را با Markdown استاندارد بنویس.
+- برای عنوان اصلی از # استفاده کن.
+- برای تیترهای بخش‌ها از ## استفاده کن.
+- پایان متن حتماً جمع‌بندی داشته باشد.
+- بخش منابع را خودت ننویس؛ سامانه بعد از پاسخ، منابع استفاده‌شده را اضافه می‌کند.
 
 متن‌های مرتبط از منابع استاد:
 {context}
 
 پرسش کاربر:
 {question}
-
-شیوه پاسخ:
-پاسخ را فارسی، رسمی، روان و مقاله‌ای بنویس.
-خروجی را با Markdown استاندارد بنویس.
-برای عنوان اصلی از # استفاده کن.
-برای تیترهای بخش‌ها از ## استفاده کن.
-حتماً مقدمه داشته باشد.
-حتماً چند تیتر مناسب و متنوع داشته باشد.
-حتماً جمع‌بندی داشته باشد.
 """
+
 
 
 @app.get("/")
@@ -284,29 +294,46 @@ async def upload_pdf(file: UploadFile = File(...)):
 
 
 def get_context_and_sources(question: str):
+    collection_data = collection.get()
+    total_chunks = len(collection_data.get("ids", []))
+
+    if total_chunks == 0:
+        return "", [], []
+
+    search_limit = min(total_chunks, 80)
+
     documents, metadatas = smart_search(
         collection=collection,
         question=question,
-        n_results=18,
+        n_results=search_limit,
     )
 
+    grouped = {}
     sources = []
+    selected_documents = []
 
-    for metadata in metadatas:
+    for document, metadata in zip(documents, metadatas):
         filename = metadata.get("filename", "منبع نامشخص")
         page = metadata.get("page", 0)
 
-        item = {
-            "filename": filename,
-            "page": page,
-        }
+        if filename not in grouped:
+            grouped[filename] = 0
 
-        if item not in sources:
-            sources.append(item)
+        if grouped[filename] < 3:
+            selected_documents.append(document)
+            grouped[filename] += 1
 
-    context = "\n\n".join(documents)
+            source_item = {
+                "filename": filename,
+                "page": page,
+            }
 
-    return context, sources, documents
+            if source_item not in sources:
+                sources.append(source_item)
+
+    context = "\n\n".join(selected_documents)
+
+    return context, sources, selected_documents
 
 
 @app.post("/chat")
@@ -382,12 +409,16 @@ def chat_stream(request: ChatRequest):
                     contents=prompt,
                 )
 
+                answer_parts = []
+
                 for chunk in stream:
                     if chunk.text:
-                        yield chunk.text
+                        answer_parts.append(chunk.text)
 
-                yield build_sources_text(sources)
-                return
+                if answer_parts:
+                    yield "".join(answer_parts)
+                    yield build_sources_text(sources)
+                    return
 
             except Exception as error:
                 print(f"Gemini key failed in /chat-stream: {error}")
@@ -449,11 +480,6 @@ def reset_knowledge_base():
 
 @app.post("/rebuild-knowledge-base")
 def rebuild_knowledge_base():
-    existing_ids = collection.get()["ids"]
-
-    if existing_ids:
-        collection.delete(ids=existing_ids)
-
     pdf_files = list(DOCUMENTS_DIR.glob("*.pdf"))
 
     if not pdf_files:
@@ -461,35 +487,32 @@ def rebuild_knowledge_base():
 
     total_files = 0
     total_chunks_saved = 0
+    total_chunks_found = 0
 
     for pdf_file in pdf_files:
         pages_data, _ = extract_text_from_pdf(pdf_file)
         extracted_text = pages_to_text(pages_data)
 
-        chunks_saved, _ = save_chunks_to_collection(
+        chunks_saved, total_chunks = save_chunks_to_collection(
             pdf_file.name,
             extracted_text,
-            skip_existing=False,
+            skip_existing=True,
         )
 
         total_files += 1
         total_chunks_saved += chunks_saved
+        total_chunks_found += total_chunks
 
     return {
-        "message": "پایگاه اطلاعاتی با موفقیت بازسازی شد.",
+        "message": "پایگاه اطلاعاتی با موفقیت بروزرسانی شد.",
         "files_processed": total_files,
         "chunks_saved": total_chunks_saved,
+        "chunks_found": total_chunks_found,
     }
 
 
 def auto_rebuild_knowledge_base_if_needed():
     try:
-        existing_ids = collection.get().get("ids", [])
-
-        if existing_ids:
-            print(f"Knowledge base already has {len(existing_ids)} chunks.")
-            return
-
         pdf_files = list(DOCUMENTS_DIR.glob("*.pdf"))
 
         if not pdf_files:
@@ -498,23 +521,26 @@ def auto_rebuild_knowledge_base_if_needed():
 
         total_files = 0
         total_chunks_saved = 0
+        total_chunks_found = 0
 
         for pdf_file in pdf_files:
             pages_data, _ = extract_text_from_pdf(pdf_file)
             extracted_text = pages_to_text(pages_data)
 
-            chunks_saved, _ = save_chunks_to_collection(
+            chunks_saved, total_chunks = save_chunks_to_collection(
                 pdf_file.name,
                 extracted_text,
-                skip_existing=False,
+                skip_existing=True,
             )
 
             total_files += 1
             total_chunks_saved += chunks_saved
+            total_chunks_found += total_chunks
 
         print(
-            f"Knowledge base auto rebuilt successfully: "
-            f"{total_files} files, {total_chunks_saved} chunks."
+            f"Knowledge base checked successfully: "
+            f"{total_files} files, {total_chunks_saved} new chunks saved, "
+            f"{total_chunks_found} chunks found."
         )
 
     except Exception as error:
