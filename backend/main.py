@@ -1,5 +1,5 @@
 from datetime import datetime
-from rag_engine import smart_search, classify_query
+from rag_engine import smart_search
 from conversation_routes import router as conversation_router
 import os
 import re
@@ -288,8 +288,8 @@ def build_prompt(context: str, question: str):
 قانون قطعی امانت:
 - فقط بر اساس «متن‌های مرتبط از منابع استاد» پاسخ بده.
 - اگر یک عبارت، جمله، کلمه، صفحه یا عنوان منبع در متن‌های پایین آمده، آن را نادیده نگیر.
-- اگر کاربر پرسیده «در کدام فایل/صفحه/مقاله آمده؟»، فقط همان منابعی را که در متن‌های پایین دیده می‌شوند فهرست کن؛ منبع حدسی اضافه نکن.
-- اگر کاربر فقط یک کلمه یا عبارت داده، موارد پیدا شده را دسته‌بندی کن و بگو در کدام منبع و صفحه آمده است.
+- اگر کاربر پرسیده «در کدام فایل/صفحه آمده؟»، اول نام منبع‌ها و صفحه‌ها را مرتب فهرست کن و سپس توضیح کوتاه بده.
+- اگر کاربر فقط یک کلمه یا عبارت داده، تمام موارد مرتبط موجود در متن‌های بازیابی‌شده را دسته‌بندی کن.
 - اگر کاربر مقاله خواسته، از متن‌های بازیابی‌شده مقاله‌ای منسجم، رسمی و مستند بنویس.
 - اگر پاسخ دقیق در متن‌ها هست، هرگز ننویس «پاسخ مستندی پیدا نشد».
 - فقط زمانی بنویس «در منابع موجود استاد، پاسخ مستندی برای این پرسش پیدا نشد» که واقعاً هیچ نشانه مرتبطی در متن‌های پایین وجود نداشته باشد.
@@ -481,37 +481,75 @@ def get_context_and_sources(question: str):
     if total_chunks == 0:
         return "", [], []
 
-    mode = classify_query(question)
+    search_limit = min(total_chunks, 80)
 
-    if mode == "article":
-        search_limit = min(total_chunks, 32)
-    elif mode in {"source_lookup", "exact_lookup"}:
-        search_limit = min(total_chunks, 24)
-    else:
-        search_limit = min(total_chunks, 24)
+    exact_items = exact_keyword_search(question, max_results=50)
 
-    documents, metadatas = smart_search(
+    semantic_documents, semantic_metadatas = smart_search(
         collection=collection,
         question=question,
         n_results=search_limit,
     )
 
+    combined_items = []
+
+    for item in exact_items:
+        combined_items.append(item)
+
+    for document, metadata in zip(semantic_documents, semantic_metadatas):
+        combined_items.append(
+            {
+                "id": f"{metadata.get('filename', '')}-{metadata.get('chunk_index', '')}",
+                "document": document,
+                "metadata": metadata,
+                "score": 0,
+            }
+        )
+
+    unique_items = {}
+
+    for item in combined_items:
+        metadata = item.get("metadata", {})
+        key = f"{metadata.get('filename', '')}-{metadata.get('chunk_index', '')}"
+
+        if key not in unique_items or item.get("score", 0) > unique_items[key].get("score", 0):
+            unique_items[key] = item
+
+    sorted_items = sorted(
+        unique_items.values(),
+        key=lambda item: item.get("score", 0),
+        reverse=True,
+    )
+
+    grouped = {}
     sources = []
     selected_documents = []
 
-    for document, metadata in zip(documents, metadatas):
+    for item in sorted_items:
+        document = item.get("document", "")
+        metadata = item.get("metadata", {})
         filename = metadata.get("filename", "منبع نامشخص")
         page = metadata.get("page", 0)
 
-        selected_documents.append(document)
+        if filename not in grouped:
+            grouped[filename] = 0
 
-        source_item = {
-            "filename": filename,
-            "page": page,
-        }
+        per_file_limit = 6 if item.get("score", 0) > 0 else 3
 
-        if source_item not in sources:
-            sources.append(source_item)
+        if grouped[filename] < per_file_limit:
+            selected_documents.append(document)
+            grouped[filename] += 1
+
+            source_item = {
+                "filename": filename,
+                "page": page,
+            }
+
+            if source_item not in sources:
+                sources.append(source_item)
+
+        if len(selected_documents) >= 24:
+            break
 
     context = "\n\n".join(selected_documents)
 
