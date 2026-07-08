@@ -474,6 +474,117 @@ def exact_keyword_search(question: str, max_results: int = 40):
     return matches[:max_results]
 
 
+
+def classify_query_intent(question: str):
+    """Classify the user request so exact lookup and article writing do not mix."""
+    q = normalize_persian_text(question)
+
+    article_markers = [
+        "مقاله", "متن", "بنویس", "بنویسید", "تحقیق", "شرح جامع",
+        "توضیح کامل", "به صورت مقاله", "یادداشت", "جمع بندی", "جمع‌بندی"
+    ]
+    lookup_markers = [
+        "کدام فایل", "کدام مقاله", "کدام کتاب", "کدام منبع", "کجا", "در کدام",
+        "صفحه", "نقل کن", "پیدا کن", "آمده", "ذکر شده", "عبارت", "جمله"
+    ]
+
+    if any(marker in q for marker in article_markers):
+        return "article"
+
+    if any(marker in q for marker in lookup_markers):
+        return "lookup"
+
+    words, phrases = extract_search_terms(question)
+
+    if len(words) <= 5:
+        return "exact"
+
+    return "topic"
+
+
+def item_key(item):
+    metadata = item.get("metadata", {})
+    return f"{metadata.get('filename', '')}-page-{metadata.get('page', '')}-chunk-{metadata.get('chunk_index', '')}"
+
+
+def dedupe_items(items):
+    unique = {}
+    for item in items:
+        key = item_key(item)
+        if key not in unique or item.get("score", 0) > unique[key].get("score", 0):
+            unique[key] = item
+    return sorted(unique.values(), key=lambda item: item.get("score", 0), reverse=True)
+
+
+def strong_exact_matches(question: str, max_results: int = 80):
+    """
+    Return only chunks that really contain the important phrase/terms.
+    This prevents semantic or weak word matches from polluting source lookup answers.
+    """
+    words, phrases = extract_search_terms(question)
+    exact_items = exact_keyword_search(question, max_results=max_results)
+
+    if not exact_items:
+        return []
+
+    meaningful_phrases = [phrase for phrase in phrases if len(phrase.split()) >= 2]
+    meaningful_words = [word for word in words if len(word) >= 4]
+
+    strong_items = []
+
+    for item in exact_items:
+        document = normalize_persian_text(item.get("document", ""))
+        filename = normalize_persian_text(item.get("metadata", {}).get("filename", ""))
+        haystack = f"{filename} {document}"
+
+        phrase_hit = any(phrase in haystack for phrase in meaningful_phrases)
+        word_hits = sum(1 for word in meaningful_words if word in haystack)
+
+        if phrase_hit:
+            item["score"] = item.get("score", 0) + 500
+            strong_items.append(item)
+        elif len(meaningful_words) >= 2 and word_hits >= min(2, len(meaningful_words)):
+            item["score"] = item.get("score", 0) + (word_hits * 80)
+            strong_items.append(item)
+        elif len(meaningful_words) == 1 and word_hits == 1:
+            item["score"] = item.get("score", 0) + 40
+            strong_items.append(item)
+
+    return dedupe_items(strong_items)[:max_results]
+
+
+def select_items_for_context(items, max_chunks=18, per_file_limit=4):
+    selected_documents = []
+    sources = []
+    grouped = {}
+
+    for item in dedupe_items(items):
+        document = item.get("document", "")
+        metadata = item.get("metadata", {})
+        filename = metadata.get("filename", "منبع نامشخص")
+        page = metadata.get("page", 0)
+
+        if not document:
+            continue
+
+        grouped.setdefault(filename, 0)
+
+        if grouped[filename] >= per_file_limit:
+            continue
+
+        grouped[filename] += 1
+        selected_documents.append(document)
+
+        source_item = {"filename": filename, "page": page}
+        if source_item not in sources:
+            sources.append(source_item)
+
+        if len(selected_documents) >= max_chunks:
+            break
+
+    return "\n\n".join(selected_documents), sources, selected_documents
+
+
 def get_context_and_sources(question: str):
     collection_data = collection.get()
     total_chunks = len(collection_data.get("ids", []))
@@ -481,9 +592,41 @@ def get_context_and_sources(question: str):
     if total_chunks == 0:
         return "", [], []
 
+    intent = classify_query_intent(question)
     search_limit = min(total_chunks, 80)
 
-    exact_items = exact_keyword_search(question, max_results=50)
+    # 1) Exact / source lookup mode: do NOT mix weak semantic results.
+    # If the user asks where a phrase appears, only real matching chunks are allowed.
+    if intent in {"lookup", "exact"}:
+        strong_items = strong_exact_matches(question, max_results=100)
+
+        if strong_items:
+            return select_items_for_context(
+                strong_items,
+                max_chunks=20,
+                per_file_limit=5,
+            )
+
+        # If exact search found nothing, fall back softly to semantic so the user still gets help.
+        semantic_documents, semantic_metadatas = smart_search(
+            collection=collection,
+            question=question,
+            n_results=min(search_limit, 20),
+        )
+
+        semantic_items = [
+            {"document": document, "metadata": metadata, "score": 0}
+            for document, metadata in zip(semantic_documents, semantic_metadatas)
+        ]
+
+        return select_items_for_context(
+            semantic_items,
+            max_chunks=10,
+            per_file_limit=2,
+        )
+
+    # 2) Article / broad topic mode: use exact + semantic, but with source diversity.
+    exact_items = strong_exact_matches(question, max_results=60)
 
     semantic_documents, semantic_metadatas = smart_search(
         collection=collection,
@@ -491,69 +634,25 @@ def get_context_and_sources(question: str):
         n_results=search_limit,
     )
 
-    combined_items = []
+    semantic_items = [
+        {"document": document, "metadata": metadata, "score": 20}
+        for document, metadata in zip(semantic_documents, semantic_metadatas)
+    ]
 
-    for item in exact_items:
-        combined_items.append(item)
+    combined_items = exact_items + semantic_items
 
-    for document, metadata in zip(semantic_documents, semantic_metadatas):
-        combined_items.append(
-            {
-                "id": f"{metadata.get('filename', '')}-{metadata.get('chunk_index', '')}",
-                "document": document,
-                "metadata": metadata,
-                "score": 0,
-            }
+    if intent == "article":
+        return select_items_for_context(
+            combined_items,
+            max_chunks=24,
+            per_file_limit=4,
         )
 
-    unique_items = {}
-
-    for item in combined_items:
-        metadata = item.get("metadata", {})
-        key = f"{metadata.get('filename', '')}-{metadata.get('chunk_index', '')}"
-
-        if key not in unique_items or item.get("score", 0) > unique_items[key].get("score", 0):
-            unique_items[key] = item
-
-    sorted_items = sorted(
-        unique_items.values(),
-        key=lambda item: item.get("score", 0),
-        reverse=True,
+    return select_items_for_context(
+        combined_items,
+        max_chunks=18,
+        per_file_limit=3,
     )
-
-    grouped = {}
-    sources = []
-    selected_documents = []
-
-    for item in sorted_items:
-        document = item.get("document", "")
-        metadata = item.get("metadata", {})
-        filename = metadata.get("filename", "منبع نامشخص")
-        page = metadata.get("page", 0)
-
-        if filename not in grouped:
-            grouped[filename] = 0
-
-        per_file_limit = 6 if item.get("score", 0) > 0 else 3
-
-        if grouped[filename] < per_file_limit:
-            selected_documents.append(document)
-            grouped[filename] += 1
-
-            source_item = {
-                "filename": filename,
-                "page": page,
-            }
-
-            if source_item not in sources:
-                sources.append(source_item)
-
-        if len(selected_documents) >= 24:
-            break
-
-    context = "\n\n".join(selected_documents)
-
-    return context, sources, selected_documents
 
 
 @app.post("/chat")
