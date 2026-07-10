@@ -301,6 +301,13 @@ def build_prompt(context: str, question: str):
 - اگر عبارت عیناً در متن آمده، همان عبارت را کوتاه و دقیق نقل کن.
 - منبع و صفحه را داخل متن بی‌رویه تکرار نکن؛ سامانه در پایان منابع را اضافه می‌کند.
 - بخش «منابع استفاده‌شده» را خودت ننویس.
+- هر بخش از متن‌های ورودی دارای شناسه‌ای مانند SOURCE_ID: S1 است.
+- فقط از همان شناسه‌هایی استفاده کن که واقعاً مبنای پاسخ نهایی بوده‌اند.
+- در آخرین خط پاسخ، دقیقاً و فقط به این شکل شناسه‌های استفاده‌شده را بنویس:
+USED_SOURCE_IDS: S1,S3
+- اگر هیچ منبعی واقعاً استفاده نشد، بنویس:
+USED_SOURCE_IDS: NONE
+- این خط فنی برای سامانه است و نباید درباره آن توضیح بدهی.
 
 متن‌های مرتبط از منابع استاد:
 {context}
@@ -557,6 +564,8 @@ def select_items_for_context(items, max_chunks=18, per_file_limit=4):
     selected_documents = []
     sources = []
     grouped = {}
+    source_ids = {}
+    next_source_number = 1
 
     for item in dedupe_items(items):
         document = item.get("document", "")
@@ -573,16 +582,106 @@ def select_items_for_context(items, max_chunks=18, per_file_limit=4):
             continue
 
         grouped[filename] += 1
-        selected_documents.append(document)
 
-        source_item = {"filename": filename, "page": page}
-        if source_item not in sources:
-            sources.append(source_item)
+        source_key = (filename, int(page or 0))
+        if source_key not in source_ids:
+            source_id = f"S{next_source_number}"
+            source_ids[source_key] = source_id
+            next_source_number += 1
+
+            sources.append(
+                {
+                    "source_id": source_id,
+                    "filename": filename,
+                    "page": page,
+                }
+            )
+        else:
+            source_id = source_ids[source_key]
+
+        labeled_document = (
+            f"[SOURCE_ID: {source_id}]\n"
+            f"[FILENAME: {filename}]\n"
+            f"[PAGE: {page}]\n"
+            f"{document}"
+        )
+
+        selected_documents.append(labeled_document)
 
         if len(selected_documents) >= max_chunks:
             break
 
     return "\n\n".join(selected_documents), sources, selected_documents
+
+
+def extract_used_source_ids(answer_text: str):
+    pattern = re.compile(
+        r"(?im)^\s*USED_SOURCE_IDS\s*:\s*([A-Za-z0-9_,\-\s]+)\s*$"
+    )
+    match = pattern.search(answer_text or "")
+
+    if not match:
+        return [], (answer_text or "").strip()
+
+    raw_ids = match.group(1).strip()
+    clean_answer = pattern.sub("", answer_text or "").strip()
+
+    if raw_ids.upper() == "NONE":
+        return [], clean_answer
+
+    used_ids = []
+    for source_id in re.split(r"[\s,]+", raw_ids):
+        source_id = source_id.strip().upper()
+        if re.fullmatch(r"S\d+", source_id) and source_id not in used_ids:
+            used_ids.append(source_id)
+
+    return used_ids, clean_answer
+
+
+def filter_sources_used_in_answer(answer_text: str, candidate_sources):
+    used_ids, clean_answer = extract_used_source_ids(answer_text)
+
+    source_map = {
+        str(source.get("source_id", "")).upper(): source
+        for source in candidate_sources
+        if source.get("source_id")
+    }
+
+    filtered_sources = [
+        source_map[source_id]
+        for source_id in used_ids
+        if source_id in source_map
+    ]
+
+    if filtered_sources:
+        return clean_answer, filtered_sources
+
+    # Safe fallback: only keep sources explicitly named in the generated answer.
+    normalized_answer = normalize_persian_text(clean_answer)
+    explicit_sources = []
+
+    for source in candidate_sources:
+        filename = str(source.get("filename", ""))
+        page = int(source.get("page") or 0)
+
+        raw_filename = normalize_persian_text(filename)
+        cleaned_filename = normalize_persian_text(clean_source_name(filename))
+
+        filename_mentioned = (
+            bool(raw_filename and raw_filename in normalized_answer)
+            or bool(cleaned_filename and cleaned_filename in normalized_answer)
+        )
+        page_mentioned = (
+            page == 0
+            or f"صفحه {page}" in normalized_answer
+            or f"صفحه: {page}" in normalized_answer
+        )
+
+        if filename_mentioned and page_mentioned:
+            explicit_sources.append(source)
+
+    # It is safer to show no automatic appendix than to claim unrelated sources.
+    return clean_answer, explicit_sources
 
 
 def get_context_and_sources(question: str):
@@ -681,7 +780,12 @@ def chat(request: ChatRequest):
                 contents=prompt,
             )
 
-            answer = response.text + build_sources_text(sources)
+            clean_answer, used_sources = filter_sources_used_in_answer(
+                response.text,
+                sources,
+            )
+            answer = clean_answer + build_sources_text(used_sources)
+            sources = used_sources
             break
 
         except Exception as error:
@@ -735,8 +839,13 @@ def chat_stream(request: ChatRequest):
                         answer_parts.append(chunk.text)
 
                 if answer_parts:
-                    yield "".join(answer_parts)
-                    yield build_sources_text(sources)
+                    raw_answer = "".join(answer_parts)
+                    clean_answer, used_sources = filter_sources_used_in_answer(
+                        raw_answer,
+                        sources,
+                    )
+                    yield clean_answer
+                    yield build_sources_text(used_sources)
                     return
 
             except Exception as error:
