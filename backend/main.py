@@ -9,7 +9,7 @@ import chromadb
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from google import genai
 from pydantic import BaseModel
 from pypdf import PdfReader
@@ -18,6 +18,7 @@ from sqlmodel import Session, select, delete
 from auth_routes import router as auth_router
 from database import create_db_and_tables, engine
 from models import User, Conversation, Message, DocumentFile
+from document_export import create_word_document
 
 load_dotenv()
 
@@ -62,6 +63,11 @@ app.add_middleware(
 
 class ChatRequest(BaseModel):
     message: str
+
+
+class ExportDocumentRequest(BaseModel):
+    title: str = "مقاله پژوهشی"
+    content: str
 
 
 def split_text(text: str, chunk_size: int = 1200, overlap: int = 250):
@@ -315,6 +321,39 @@ USED_SOURCE_IDS: NONE
 پرسش کاربر:
 {question}
 """
+
+
+@app.post("/export-word")
+def export_word(request: ExportDocumentRequest):
+    if not request.content.strip():
+        return Response(
+            content="متن مقاله برای ساخت فایل Word خالی است.",
+            status_code=400,
+            media_type="text/plain; charset=utf-8",
+        )
+
+    document_bytes = create_word_document(
+        title=request.title,
+        markdown_content=request.content,
+    )
+
+    safe_filename = re.sub(r"[^A-Za-z0-9_-]+", "-", request.title).strip("-")
+    if not safe_filename:
+        safe_filename = "ProfessorAI-article"
+
+    return Response(
+        content=document_bytes,
+        media_type=(
+            "application/vnd.openxmlformats-officedocument."
+            "wordprocessingml.document"
+        ),
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{safe_filename[:80]}.docx"'
+            ),
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @app.get("/")

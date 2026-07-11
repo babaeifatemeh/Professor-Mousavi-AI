@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Copy, Pencil, RefreshCcw, RotateCcw, X } from "lucide-react";
+import { Check, Copy, FileText, Pencil, RefreshCcw, RotateCcw, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -38,6 +38,7 @@ export default function SearchBox({
   const [loading, setLoading] = useState(false);
   const [composerMode, setComposerMode] = useState<ComposerMode>({ type: "normal" });
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [exportingIndex, setExportingIndex] = useState<number | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -151,13 +152,70 @@ export default function SearchBox({
     return visibleRequest;
   }
 
+  function markdownToPlainText(content: string) {
+    return content
+      .replace(/^#{1,6}\s+/gm, "")
+      .replace(/^>\s?/gm, "")
+      .replace(/^[-+*]\s+/gm, "• ")
+      .replace(/^\d+[.)]\s+/gm, "")
+      .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+      .replace(/`{1,3}([^`]+)`{1,3}/g, "$1")
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/__([^_]+)__/g, "$1")
+      .replace(/(^|[^*])\*([^*]+)\*(?!\*)/g, "$1$2")
+      .replace(/(^|[^_])_([^_]+)_(?!_)/g, "$1$2")
+      .replace(/^[-*_]{3,}\s*$/gm, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  }
+
   async function copyAnswer(content: string, index: number) {
     try {
-      await navigator.clipboard.writeText(content);
+      await navigator.clipboard.writeText(markdownToPlainText(content));
       setCopiedIndex(index);
       window.setTimeout(() => setCopiedIndex(null), 1800);
     } catch {
       setCopiedIndex(null);
+    }
+  }
+
+  async function downloadWord(content: string, assistantIndex: number) {
+    if (exportingIndex !== null) return;
+
+    const title =
+      findPreviousUserQuestion(assistantIndex).trim() || "مقاله پژوهشی";
+
+    setExportingIndex(assistantIndex);
+
+    try {
+      const response = await fetch(`${API_URL}/export-word`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          content,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("ساخت فایل Word ناموفق بود.");
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = "ProfessorAI-article.docx";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      window.alert("ساخت فایل Word انجام نشد. لطفاً دوباره تلاش کنید.");
+    } finally {
+      setExportingIndex(null);
     }
   }
 
@@ -314,6 +372,16 @@ export default function SearchBox({
                     >
                       {copiedIndex === index ? <Check size={16} /> : <Copy size={16} />}
                       {copiedIndex === index ? "کپی شد" : "کپی"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => downloadWord(item.content, index)}
+                      disabled={exportingIndex !== null}
+                      className="inline-flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2 text-sm font-bold text-green-800 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <FileText size={16} />
+                      {exportingIndex === index ? "در حال ساخت..." : "Word"}
                     </button>
                   </div>
                 )}
