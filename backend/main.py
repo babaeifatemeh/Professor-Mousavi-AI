@@ -678,7 +678,52 @@ def extract_used_source_ids(answer_text: str):
     return used_ids, clean_answer
 
 
+
+INTERNAL_OUTPUT_PATTERNS = (
+    r"این\s+(?:سورس|منبع)\s+اشتباه\s+است",
+    r"(?:سورس|منبع)\s+اشتباه",
+    r"باید\s+تصحیح\s+شود",
+    r"نیاز\s+به\s+تصحیح",
+    r"تصحیح\s*:",
+    r"اصلاح\s+منبع",
+    r"منبع\s+باید\s+جایگزین\s+شود",
+    r"چانک",
+    r"chunk",
+    r"candidate",
+    r"score",
+    r"رتبه(?:‌|\s*)بندی\s+منابع",
+)
+
+
+def sanitize_public_answer(answer_text: str) -> str:
+    """
+    Remove internal retrieval/debug commentary from the user-facing answer.
+    It does not rewrite valid scholarly content; it only drops contaminated
+    lines/paragraphs that expose source-correction or ranking instructions.
+    """
+    value = str(answer_text or "")
+    kept_blocks = []
+
+    for block in re.split(r"\n\s*\n", value):
+        cleaned = block.strip()
+        if not cleaned:
+            continue
+
+        normalized = normalize_persian_text(cleaned)
+        is_internal = any(
+            re.search(pattern, normalized, flags=re.IGNORECASE)
+            for pattern in INTERNAL_OUTPUT_PATTERNS
+        )
+
+        if not is_internal:
+            kept_blocks.append(cleaned)
+
+    result = "\n\n".join(kept_blocks)
+    result = re.sub(r"\n{3,}", "\n\n", result).strip()
+    return result
+
 def filter_sources_used_in_answer(answer_text: str, candidate_sources):
+    answer_text = sanitize_public_answer(answer_text)
     used_ids, clean_answer = extract_used_source_ids(answer_text)
 
     source_map = {
