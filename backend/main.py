@@ -302,7 +302,8 @@ def build_prompt(context: str, question: str):
 
 شیوه پاسخ:
 - فارسی، رسمی، روان و دقیق بنویس.
-- برای پاسخ‌های جستجویی، از بخش‌های «نتیجه جستجو»، «عبارت/نکته یافت‌شده»، و «منابع» استفاده کن.
+- فقط برای پرسش‌های صریحِ یافتن فایل، صفحه یا عبارت، از ساختار جستجویی استفاده کن.
+- برای مقاله، هرگز عنوان‌هایی مانند «نتیجه جستجو» یا «عبارت یافت‌شده» ننویس؛ مستقیماً با عنوان مقاله و مقدمه آغاز کن.
 - برای پاسخ‌های مقاله‌ای، مقدمه، تیترهای منظم و جمع‌بندی داشته باش.
 - اگر عبارت عیناً در متن آمده، همان عبارت را کوتاه و دقیق نقل کن.
 - منبع و صفحه را داخل متن بی‌رویه تکرار نکن؛ سامانه در پایان منابع را اضافه می‌کند.
@@ -723,6 +724,151 @@ def filter_sources_used_in_answer(answer_text: str, candidate_sources):
     return clean_answer, explicit_sources
 
 
+
+EVIDENCE_MARKERS = (
+    "کدام فایل",
+    "کدام مقاله",
+    "کدام کتاب",
+    "کدام منبع",
+    "در کدام",
+    "کجا آمده",
+    "کجا ذکر شده",
+    "در چه صفحه",
+    "کدام صفحه",
+    "صفحه چند",
+    "پیدا کن",
+    "عبارت را پیدا",
+    "جمله را پیدا",
+    "عین متن",
+    "متن اصلی",
+    "نقل کن",
+    "نقل قول",
+    "نقل‌قول",
+    "ذکر شده",
+)
+
+
+def should_use_evidence_mode(question: str) -> bool:
+    """
+    Evidence Mode is only for explicit source/phrase/page lookup requests.
+    General explanations and article requests still go through Gemini.
+    """
+    normalized = normalize_persian_text(question)
+
+    article_markers = (
+        "مقاله",
+        "تحقیق",
+        "شرح جامع",
+        "توضیح کامل",
+        "بنویس",
+        "بنویسید",
+        "تحلیل",
+        "بررسی جامع",
+    )
+
+    if any(marker in normalized for marker in article_markers):
+        return False
+
+    if any(marker in normalized for marker in EVIDENCE_MARKERS):
+        return True
+
+    # Quoted text usually means the user wants the exact occurrence.
+    if re.search(r'[«"]([^»"]+)[»"]', question or ""):
+        return True
+
+    return False
+
+
+def strip_index_headers(document: str) -> str:
+    """
+    Remove only internal index labels.
+    The source wording itself is not rewritten, summarized, normalized, or corrected.
+    """
+    value = str(document or "")
+    value = re.sub(r"^\s*نام فایل:\s*.*?\n", "", value, count=1)
+    value = re.sub(r"^\s*صفحه:\s*\d+\s*\n", "", value, count=1)
+    value = re.sub(r"^\s*متن:\s*\n?", "", value, count=1)
+    return value.strip()
+
+
+def build_exact_evidence_response(question: str):
+    """
+    Return an answer built directly from indexed PDF text without Gemini.
+    This prevents the model from joining sentences, removing parentheses,
+    or presenting a rewritten sentence as a quotation.
+    """
+    matches = strong_exact_matches(question, max_results=160)
+
+    if not matches:
+        return None, []
+
+    # Keep one best matching chunk per file/page.
+    best_by_page = {}
+
+    for item in matches:
+        metadata = item.get("metadata", {})
+        filename = metadata.get("filename", "منبع نامشخص")
+        page = int(metadata.get("page") or 0)
+        key = (filename, page)
+
+        if key not in best_by_page or item.get("score", 0) > best_by_page[key].get("score", 0):
+            best_by_page[key] = item
+
+    ranked = sorted(
+        best_by_page.values(),
+        key=lambda item: item.get("score", 0),
+        reverse=True,
+    )[:20]
+
+    sections = [
+        "## نتیجه جستجوی مستند",
+        "",
+        "متن‌های زیر مستقیماً از متن استخراج‌شدهٔ فایل‌های PDF نمایش داده می‌شوند و توسط هوش مصنوعی بازنویسی نشده‌اند.",
+    ]
+    sources = []
+
+    for item in ranked:
+        metadata = item.get("metadata", {})
+        filename = metadata.get("filename", "منبع نامشخص")
+        page = int(metadata.get("page") or 0)
+        evidence_text = strip_index_headers(item.get("document", ""))
+
+        if not evidence_text:
+            continue
+
+        sections.extend(
+            [
+                "",
+                f"### {clean_source_name(filename)}",
+                f"**صفحه {page}**" if page else "",
+                "",
+                "> " + evidence_text.replace("\n", "\n> "),
+            ]
+        )
+
+        source = {"filename": filename, "page": page}
+        if source not in sources:
+            sources.append(source)
+
+    if not sources:
+        return None, []
+
+    sections.extend(
+        [
+            "",
+            "## منابع استفاده‌شده",
+            "",
+        ]
+    )
+
+    for source in sources:
+        label = clean_source_name(source["filename"])
+        if source["page"]:
+            label += f"، صفحه {source['page']}"
+        sections.append(f"- {label}")
+
+    return "\n".join(line for line in sections if line is not None), sources
+
 def get_context_and_sources(question: str):
     collection_data = collection.get()
     total_chunks = len(collection_data.get("ids", []))
@@ -795,6 +941,20 @@ def get_context_and_sources(question: str):
 
 @app.post("/chat")
 def chat(request: ChatRequest):
+    if should_use_evidence_mode(request.message):
+        evidence_answer, evidence_sources = build_exact_evidence_response(
+            request.message
+        )
+
+        if evidence_answer:
+            return {
+                "answer": evidence_answer,
+                "sources": [
+                    clean_source_name(source.get("filename", ""))
+                    for source in evidence_sources
+                ],
+            }
+
     if not api_keys:
         return {"answer": "خطا: کلید Gemini در تنظیمات سرور پیدا نشد."}
 
@@ -845,6 +1005,15 @@ def chat(request: ChatRequest):
 
 @app.post("/chat-stream")
 def chat_stream(request: ChatRequest):
+    if should_use_evidence_mode(request.message):
+        evidence_answer, _ = build_exact_evidence_response(request.message)
+
+        if evidence_answer:
+            return StreamingResponse(
+                iter([evidence_answer]),
+                media_type="text/plain",
+            )
+
     if not api_keys:
         return StreamingResponse(
             iter(["خطا: کلید Gemini در تنظیمات سرور پیدا نشد."]),
