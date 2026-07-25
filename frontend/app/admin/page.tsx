@@ -14,6 +14,8 @@ type DocumentItem = {
   row: number;
   filename: string;
   display_name: string;
+  source_type: "book" | "article" | "lecture" | "other";
+  source_type_label: string;
   pages: number;
   chunks: number;
   size_kb: number;
@@ -50,6 +52,9 @@ export default function AdminPage() {
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [users, setUsers] = useState<RegisteredUser[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedSourceType, setSelectedSourceType] = useState<
+    "book" | "article" | "lecture" | "other"
+  >("article");
   const [searchText, setSearchText] = useState("");
   const [editingUser, setEditingUser] = useState<RegisteredUser | null>(null);
   const [toast, setToast] = useState<ToastData | null>(null);
@@ -177,6 +182,7 @@ export default function AdminPage() {
 
     const formData = new FormData();
     formData.append("file", selectedFile);
+    formData.append("source_type", selectedSourceType);
 
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${API_URL}/admin/upload-document`);
@@ -198,6 +204,7 @@ export default function AdminPage() {
         if (xhr.status >= 200 && xhr.status < 300) {
           showToast(data.message || "فایل با موفقیت آپلود شد.", "success");
           setSelectedFile(null);
+          setSelectedSourceType("article");
           if (fileInputRef.current) fileInputRef.current.value = "";
 
           await loadDocuments();
@@ -345,7 +352,8 @@ export default function AdminPage() {
 
     return (
       doc.display_name.toLowerCase().includes(search) ||
-      doc.filename.toLowerCase().includes(search)
+      doc.filename.toLowerCase().includes(search) ||
+      (doc.source_type_label || "").toLowerCase().includes(search)
     );
   });
 
@@ -577,6 +585,30 @@ export default function AdminPage() {
             disabled={isUploading}
           />
 
+          <div className="mb-4 max-w-md">
+            <label className="mb-2 block text-sm font-bold text-green-900">
+              نوع منبع
+            </label>
+            <select
+              value={selectedSourceType}
+              onChange={(e) =>
+                setSelectedSourceType(
+                  e.target.value as "book" | "article" | "lecture" | "other",
+                )
+              }
+              disabled={isUploading}
+              className="w-full rounded-xl border border-green-200 bg-white px-4 py-3 outline-none focus:border-green-700 disabled:bg-gray-100"
+            >
+              <option value="article">مقاله سایت</option>
+              <option value="book">کتاب</option>
+              <option value="lecture">درس‌گفتار یا جزوه</option>
+              <option value="other">سایر منابع</option>
+            </select>
+            <p className="mt-2 text-xs leading-6 text-gray-500">
+              نوع منبع همراه فایل ارسال می‌شود تا در نمایش منابع و جستجو استفاده شود.
+            </p>
+          </div>
+
           <div className="flex flex-col gap-4 md:flex-row md:items-center">
             <button
               onClick={() => fileInputRef.current?.click()}
@@ -597,7 +629,15 @@ export default function AdminPage() {
 
           <p className="mt-4 text-sm text-gray-600">
             {selectedFile
-              ? `فایل انتخاب‌شده: ${selectedFile.name}`
+              ? `فایل انتخاب‌شده: ${selectedFile.name} | نوع منبع: ${
+                  selectedSourceType === "book"
+                    ? "کتاب"
+                    : selectedSourceType === "lecture"
+                      ? "درس‌گفتار یا جزوه"
+                      : selectedSourceType === "other"
+                        ? "سایر منابع"
+                        : "مقاله سایت"
+                }`
               : "هنوز فایلی انتخاب نشده است."}
           </p>
 
@@ -652,6 +692,11 @@ export default function AdminPage() {
                   </div>
 
                   <div className="mt-2 flex flex-wrap gap-4 text-sm text-gray-600">
+                    {doc.source_type_label && (
+                      <span className="rounded-full bg-green-50 px-3 py-1 font-bold text-green-800">
+                        🗂 {doc.source_type_label}
+                      </span>
+                    )}
                     <span>📄 {doc.pages} صفحه</span>
                     <span>📑 بخش‌های قابل جستجو: {doc.chunks}</span>
                     <span>💾 {doc.size_kb} KB</span>
