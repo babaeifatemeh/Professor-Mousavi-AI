@@ -7,12 +7,13 @@ from pathlib import Path
 
 import chromadb
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from google import genai
 from pydantic import BaseModel
 from pypdf import PdfReader
+from sqlalchemy import inspect, text
 from sqlmodel import Session, select, delete
 
 from auth_routes import router as auth_router
@@ -29,6 +30,58 @@ api_keys = [
 ]
 
 api_keys = [key.strip() for key in api_keys if key and key.strip()]
+
+SOURCE_TYPES = {
+    "book": "کتاب",
+    "article": "مقاله سایت",
+    "lecture": "درس‌گفتار یا جزوه",
+    "other": "سایر منابع",
+}
+DEFAULT_SOURCE_TYPE = "article"
+
+
+def normalize_source_type(source_type: str | None) -> str:
+    value = str(source_type or DEFAULT_SOURCE_TYPE).strip().lower()
+    if value not in SOURCE_TYPES:
+        raise HTTPException(
+            status_code=422,
+            detail="نوع منبع نامعتبر است.",
+        )
+    return value
+
+
+def source_type_label(source_type: str | None) -> str:
+    return SOURCE_TYPES.get(str(source_type or "").strip().lower(), "سایر منابع")
+
+
+def ensure_document_source_type_column():
+    """Add source_type safely for installations created before this field existed."""
+    inspector = inspect(engine)
+    table_names = inspector.get_table_names()
+
+    if "documentfile" not in table_names:
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("documentfile")}
+
+    with engine.begin() as connection:
+        if "source_type" not in columns:
+            connection.execute(
+                text(
+                    "ALTER TABLE documentfile "
+                    "ADD COLUMN source_type VARCHAR NOT NULL DEFAULT 'article'"
+                )
+            )
+
+        try:
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_documentfile_source_type "
+                    "ON documentfile (source_type)"
+                )
+            )
+        except Exception as error:
+            print(f"Could not create source_type index: {error}")
 
 UPLOAD_DIR = Path("uploaded_files")
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -163,7 +216,13 @@ def extract_page_blocks(extracted_text: str):
     return pages
 
 
-def save_chunks_to_collection(filename: str, extracted_text: str, skip_existing: bool = True):
+def save_chunks_to_collection(
+    filename: str,
+    extracted_text: str,
+    source_type: str = DEFAULT_SOURCE_TYPE,
+    skip_existing: bool = True,
+):
+    source_type = normalize_source_type(source_type)
     page_blocks = extract_page_blocks(extracted_text)
     existing_ids = set(collection.get()["ids"]) if skip_existing else set()
 
@@ -195,6 +254,7 @@ def save_chunks_to_collection(filename: str, extracted_text: str, skip_existing:
                     "filename": filename,
                     "chunk_index": chunk_index,
                     "page": page_number,
+                    "source_type": source_type,
                 }
             )
 
@@ -208,8 +268,8 @@ def save_chunks_to_collection(filename: str, extracted_text: str, skip_existing:
     return len(documents), total_chunks
 
 
-def clean_source_name(filename: str):
-    name = str(filename)
+def clean_source_name(filename: str, source_type: str = DEFAULT_SOURCE_TYPE):
+    name = str(filename or "")
 
     try:
         if "\\u" in name:
@@ -219,7 +279,7 @@ def clean_source_name(filename: str):
 
     name = name.replace("\\n", " ")
     name = name.replace("\n", " ")
-    name = name.replace(".pdf", "")
+    name = re.sub(r"\.pdf$", "", name, flags=re.IGNORECASE)
     name = name.replace("www.ostad-mosavi.com_articles_", "")
     name = name.replace("www.ostad-mosavi.com", "")
     name = name.replace("articles", "")
@@ -235,21 +295,19 @@ def clean_source_name(filename: str):
     if not name:
         name = "منبعی از آثار استاد"
 
-    lower_name = name.lower().strip()
+    normalized_type = str(source_type or DEFAULT_SOURCE_TYPE).strip().lower()
 
-    if lower_name.startswith("ketabe noq"):
-        return "کتاب نقطة الهدایة، از آثار استاد علامه سید علی موسوی(ره)"
-
-    if lower_name.startswith("ketab ") or lower_name.startswith("book ") or name.startswith("کتاب "):
-        title = name
-        title = re.sub(r"^ketab\s+", "", title, flags=re.IGNORECASE)
-        title = re.sub(r"^book\s+", "", title, flags=re.IGNORECASE)
-        title = re.sub(r"^کتاب\s+", "", title)
-        title = title.replace("Ostad Mousavi", "")
-        title = title.replace("ostad mousavi", "")
-        title = re.sub(r"\s+", " ", title).strip()
-
+    if normalized_type == "book":
+        title = re.sub(r"^(ketab|book|کتاب)\s+", "", name, flags=re.IGNORECASE)
+        title = title.replace("Ostad Mousavi", "").replace("ostad mousavi", "")
+        title = re.sub(r"\s+", " ", title).strip() or name
         return f"کتاب {title}، از آثار استاد علامه سید علی موسوی(ره)"
+
+    if normalized_type == "lecture":
+        return f"{name}، درس‌گفتار یا جزوه استاد علامه سید علی موسوی(ره)"
+
+    if normalized_type == "other":
+        return f"{name}، از منابع مؤسسه حکمةٌ صافیه"
 
     return f"{name}، مقاله‌ای برگرفته از سایت استاد علامه سید علی موسوی(ره)"
 
@@ -264,11 +322,13 @@ def build_sources_text(sources):
         if isinstance(source, dict):
             filename = source.get("filename", "منبع نامشخص")
             page = source.get("page", 0)
+            source_type = source.get("source_type", DEFAULT_SOURCE_TYPE)
         else:
             filename = source
             page = 0
+            source_type = DEFAULT_SOURCE_TYPE
 
-        cleaned = clean_source_name(filename)
+        cleaned = clean_source_name(filename, source_type)
 
         if page:
             cleaned = f"{cleaned}، صفحه {page}"
@@ -378,11 +438,14 @@ async def upload_pdf(file: UploadFile = File(...)):
     chunks_saved, total_chunks = save_chunks_to_collection(
         file.filename,
         extracted_text,
+        source_type=DEFAULT_SOURCE_TYPE,
         skip_existing=False,
     )
 
     return {
         "filename": file.filename,
+        "source_type": DEFAULT_SOURCE_TYPE,
+        "source_type_label": source_type_label(DEFAULT_SOURCE_TYPE),
         "pages": pages_count,
         "chunks_saved": chunks_saved,
         "total_chunks": total_chunks,
@@ -612,6 +675,7 @@ def select_items_for_context(items, max_chunks=18, per_file_limit=4):
         metadata = item.get("metadata", {})
         filename = metadata.get("filename", "منبع نامشخص")
         page = metadata.get("page", 0)
+        source_type = metadata.get("source_type", DEFAULT_SOURCE_TYPE)
 
         if not document:
             continue
@@ -623,7 +687,7 @@ def select_items_for_context(items, max_chunks=18, per_file_limit=4):
 
         grouped[filename] += 1
 
-        source_key = (filename, int(page or 0))
+        source_key = (filename, int(page or 0), source_type)
         if source_key not in source_ids:
             source_id = f"S{next_source_number}"
             source_ids[source_key] = source_id
@@ -634,6 +698,7 @@ def select_items_for_context(items, max_chunks=18, per_file_limit=4):
                     "source_id": source_id,
                     "filename": filename,
                     "page": page,
+                    "source_type": source_type,
                 }
             )
         else:
@@ -643,6 +708,7 @@ def select_items_for_context(items, max_chunks=18, per_file_limit=4):
             f"[SOURCE_ID: {source_id}]\n"
             f"[FILENAME: {filename}]\n"
             f"[PAGE: {page}]\n"
+            f"[SOURCE_TYPE: {source_type}]\n"
             f"{document}"
         )
 
@@ -750,7 +816,9 @@ def filter_sources_used_in_answer(answer_text: str, candidate_sources):
         page = int(source.get("page") or 0)
 
         raw_filename = normalize_persian_text(filename)
-        cleaned_filename = normalize_persian_text(clean_source_name(filename))
+        cleaned_filename = normalize_persian_text(
+            clean_source_name(filename, source.get("source_type", DEFAULT_SOURCE_TYPE))
+        )
 
         filename_mentioned = (
             bool(raw_filename and raw_filename in normalized_answer)
@@ -876,6 +944,7 @@ def build_exact_evidence_response(question: str):
         metadata = item.get("metadata", {})
         filename = metadata.get("filename", "منبع نامشخص")
         page = int(metadata.get("page") or 0)
+        source_type = metadata.get("source_type", DEFAULT_SOURCE_TYPE)
         evidence_text = strip_index_headers(item.get("document", ""))
 
         if not evidence_text:
@@ -884,14 +953,18 @@ def build_exact_evidence_response(question: str):
         sections.extend(
             [
                 "",
-                f"### {clean_source_name(filename)}",
+                f"### {clean_source_name(filename, source_type)}",
                 f"**صفحه {page}**" if page else "",
                 "",
                 "> " + evidence_text.replace("\n", "\n> "),
             ]
         )
 
-        source = {"filename": filename, "page": page}
+        source = {
+            "filename": filename,
+            "page": page,
+            "source_type": source_type,
+        }
         if source not in sources:
             sources.append(source)
 
@@ -907,7 +980,10 @@ def build_exact_evidence_response(question: str):
     )
 
     for source in sources:
-        label = clean_source_name(source["filename"])
+        label = clean_source_name(
+            source["filename"],
+            source.get("source_type", DEFAULT_SOURCE_TYPE),
+        )
         if source["page"]:
             label += f"، صفحه {source['page']}"
         sections.append(f"- {label}")
@@ -995,7 +1071,10 @@ def chat(request: ChatRequest):
             return {
                 "answer": evidence_answer,
                 "sources": [
-                    clean_source_name(source.get("filename", ""))
+                    clean_source_name(
+                        source.get("filename", ""),
+                        source.get("source_type", DEFAULT_SOURCE_TYPE),
+                    )
                     for source in evidence_sources
                 ],
             }
@@ -1044,7 +1123,10 @@ def chat(request: ChatRequest):
 
     return {
         "answer": answer,
-        "sources": [clean_source_name(source.get("filename", "")) for source in sources[:20]],
+        "sources": [clean_source_name(
+                        source.get("filename", ""),
+                        source.get("source_type", DEFAULT_SOURCE_TYPE),
+                    ) for source in sources[:20]],
     }
 
 
@@ -1113,6 +1195,20 @@ def chat_stream(request: ChatRequest):
     return StreamingResponse(generate(), media_type="text/plain")
 
 
+def get_document_source_type(filename: str) -> str:
+    with Session(engine) as session:
+        stored_file = session.exec(
+            select(DocumentFile).where(DocumentFile.filename == filename)
+        ).first()
+
+    if stored_file and stored_file.source_type:
+        value = str(stored_file.source_type).strip().lower()
+        if value in SOURCE_TYPES:
+            return value
+
+    return DEFAULT_SOURCE_TYPE
+
+
 @app.post("/ingest-documents")
 def ingest_documents():
     pdf_files = list(DOCUMENTS_DIR.glob("*.pdf"))
@@ -1131,6 +1227,7 @@ def ingest_documents():
         chunks_saved, total_chunks = save_chunks_to_collection(
             pdf_file.name,
             extracted_text,
+            source_type=get_document_source_type(pdf_file.name),
             skip_existing=True,
         )
 
@@ -1181,6 +1278,7 @@ def rebuild_knowledge_base():
         chunks_saved, total_chunks = save_chunks_to_collection(
             pdf_file.name,
             extracted_text,
+            source_type=get_document_source_type(pdf_file.name),
             skip_existing=False,
         )
 
@@ -1216,6 +1314,7 @@ def auto_rebuild_knowledge_base_if_needed():
             chunks_saved, total_chunks = save_chunks_to_collection(
                 pdf_file.name,
                 extracted_text,
+                source_type=get_document_source_type(pdf_file.name),
                 skip_existing=True,
             )
 
@@ -1256,6 +1355,7 @@ def restore_documents_from_database():
 
 @app.on_event("startup")
 def startup_tasks():
+    ensure_document_source_type_column()
     restore_documents_from_database()
     auto_rebuild_knowledge_base_if_needed()
 
@@ -1282,8 +1382,15 @@ def knowledge_base_status():
 
 
 @app.post("/admin/upload-document")
-async def admin_upload_document(file: UploadFile = File(...)):
+async def admin_upload_document(
+    file: UploadFile = File(...),
+    source_type: str = Form(DEFAULT_SOURCE_TYPE),
+):
     DOCUMENTS_DIR.mkdir(exist_ok=True)
+    source_type = normalize_source_type(source_type)
+
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=422, detail="فقط فایل PDF قابل قبول است.")
 
     content = await file.read()
 
@@ -1297,9 +1404,11 @@ async def admin_upload_document(file: UploadFile = File(...)):
 
         if existing_file:
             existing_file.content = content
+            existing_file.source_type = source_type
         else:
             existing_file = DocumentFile(
                 filename=file.filename,
+                source_type=source_type,
                 content=content,
             )
             session.add(existing_file)
@@ -1313,12 +1422,15 @@ async def admin_upload_document(file: UploadFile = File(...)):
     chunks_saved, total_chunks = save_chunks_to_collection(
         file.filename,
         extracted_text,
+        source_type=source_type,
         skip_existing=False,
     )
 
     return {
         "message": "فایل با موفقیت آپلود، ذخیره و وارد پایگاه جستجو شد.",
         "filename": file.filename,
+        "source_type": source_type,
+        "source_type_label": source_type_label(source_type),
         "pages": pages_count,
         "deleted_old_chunks": deleted_chunks,
         "chunks_saved": chunks_saved,
@@ -1335,6 +1447,14 @@ def admin_list_documents():
 
     collection_data = collection.get()
     metadatas = collection_data.get("metadatas", [])
+
+    with Session(engine) as session:
+        stored_documents = session.exec(select(DocumentFile)).all()
+
+    stored_source_types = {
+        document.filename: (document.source_type or DEFAULT_SOURCE_TYPE)
+        for document in stored_documents
+    }
 
     pdf_files = sorted(
         DOCUMENTS_DIR.glob("*.pdf"),
@@ -1356,6 +1476,7 @@ def admin_list_documents():
             if meta.get("filename") == file.name:
                 chunks += 1
 
+        source_type = stored_source_types.get(file.name, DEFAULT_SOURCE_TYPE)
         uploaded_timestamp = file.stat().st_mtime
         uploaded_at = datetime.fromtimestamp(uploaded_timestamp).strftime(
             "%Y/%m/%d - %H:%M"
@@ -1365,7 +1486,9 @@ def admin_list_documents():
             {
                 "row": index,
                 "filename": file.name,
-                "display_name": clean_source_name(file.name),
+                "display_name": clean_source_name(file.name, source_type),
+                "source_type": source_type,
+                "source_type_label": source_type_label(source_type),
                 "size_kb": round(file.stat().st_size / 1024, 2),
                 "pages": pages,
                 "chunks": chunks,
@@ -1460,6 +1583,13 @@ def admin_dashboard():
         2,
     )
 
+    source_type_counts = {key: 0 for key in SOURCE_TYPES}
+    for document in stored_documents:
+        key = str(document.source_type or DEFAULT_SOURCE_TYPE).strip().lower()
+        if key not in source_type_counts:
+            key = "other"
+        source_type_counts[key] += 1
+
     return {
         "users": len(users),
         "active_users": active_users,
@@ -1474,6 +1604,7 @@ def admin_dashboard():
         "messages": len(messages),
         "files_size_kb": round(total_size_kb, 2),
         "database_documents_size_kb": database_documents_size_kb,
+        "source_type_counts": source_type_counts,
         "api_keys": len(api_keys),
         "gemini_ready": bool(api_keys),
         "chroma_ready": True,
