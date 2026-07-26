@@ -14,6 +14,8 @@ class User(SQLModel, table=True):
     is_admin: bool = False
     is_active: bool = True
 
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
 
 class Conversation(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)

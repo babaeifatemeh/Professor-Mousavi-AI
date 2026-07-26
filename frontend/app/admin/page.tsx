@@ -30,6 +30,7 @@ type RegisteredUser = {
   email: string;
   is_admin: boolean;
   is_active: boolean;
+  created_at: string;
 };
 
 type ToastData = {
@@ -543,6 +544,9 @@ export default function AdminPage() {
 
                 <div className="text-sm font-bold">
                   {item.is_active ? "🟢 فعال" : "🔴 غیرفعال"}
+                  <div className="mt-1 text-xs font-normal text-gray-500">
+                    📅 {item.created_at}
+                  </div>
                 </div>
 
                 <div className="flex gap-2">

@@ -1507,6 +1507,11 @@ def admin_users():
                 "email": user.email,
                 "is_admin": user.is_admin,
                 "is_active": user.is_active,
+                "created_at": (
+                    user.created_at.strftime("%Y/%m/%d %H:%M")
+                    if user.created_at
+                    else "-"
+                ),
             }
             for user in users
         ]
