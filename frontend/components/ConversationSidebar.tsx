@@ -35,14 +35,21 @@ export default function ConversationSidebar({
 
   useEffect(() => {
     async function loadConversations() {
-      if (!userId) return;
+      if (!userId) {
+        setConversations([]);
+        return;
+      }
 
       setLoading(true);
 
       try {
         const response = await fetch(`${API_URL}/conversations/user/${userId}`);
-        const data = await response.json();
 
+        if (!response.ok) {
+          throw new Error("Failed to load conversations");
+        }
+
+        const data = await response.json();
         setConversations(Array.isArray(data) ? data : data.conversations || []);
       } catch {
         setConversations([]);
@@ -65,7 +72,7 @@ export default function ConversationSidebar({
   }
 
   const conversationList = (
-    <div className="space-y-2 overflow-y-auto pr-1">
+    <div className="space-y-2 pr-1">
       {loading && (
         <p className="rounded-xl bg-green-50 px-3 py-3 text-sm text-gray-500">
           در حال بارگذاری...
@@ -73,7 +80,7 @@ export default function ConversationSidebar({
       )}
 
       {!loading && conversations.length === 0 && (
-        <p className="rounded-xl bg-green-50 px-3 py-3 text-sm text-gray-500">
+        <p className="rounded-xl bg-green-50 px-3 py-3 text-sm leading-6 text-gray-500">
           هنوز گفتگویی ذخیره نشده است.
         </p>
       )}
@@ -83,9 +90,9 @@ export default function ConversationSidebar({
           key={conversation.id}
           type="button"
           onClick={() => handleSelectConversation(conversation.id)}
-          className={`w-full cursor-pointer rounded-xl px-3 py-3 text-right text-sm transition ${
+          className={`w-full cursor-pointer rounded-xl px-3 py-3 text-right text-sm transition-colors duration-200 ${
             activeConversationId === conversation.id
-              ? "bg-green-800 text-white"
+              ? "bg-green-800 text-white shadow-sm"
               : "bg-green-50 text-green-950 hover:bg-green-100"
           }`}
         >
@@ -102,21 +109,27 @@ export default function ConversationSidebar({
   );
 
   const desktopSidebar = (
-    <aside className="hidden w-80 shrink-0 rounded-3xl border border-green-100 bg-white/90 p-4 shadow-xl shadow-green-200/40 lg:block">
-      <button
-        type="button"
-        onClick={handleNewChat}
-        className="mb-5 flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-green-800 px-4 py-3 font-bold text-white transition hover:bg-green-900"
-      >
-        <MessageSquarePlus size={18} />
-        گفتگوی جدید
-      </button>
+    <aside className="hidden w-80 shrink-0 self-start lg:sticky lg:top-6 lg:block">
+      <div className="overflow-hidden rounded-3xl border border-green-100 bg-white/90 shadow-xl shadow-green-200/40 backdrop-blur-sm">
+        <div className="border-b border-green-100 p-4">
+          <button
+            type="button"
+            onClick={handleNewChat}
+            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-green-800 px-4 py-3 font-bold text-white transition-colors duration-200 hover:bg-green-900"
+          >
+            <MessageSquarePlus size={18} />
+            گفتگوی جدید
+          </button>
 
-      <h2 className="mb-3 px-2 text-sm font-bold text-green-900">
-        تاریخچه گفتگوها
-      </h2>
+          <h2 className="mt-5 px-2 text-sm font-bold text-green-900">
+            تاریخچه گفتگوها
+          </h2>
+        </div>
 
-      <div className="max-h-[620px] overflow-y-auto">{conversationList}</div>
+        <div className="max-h-[calc(100vh-190px)] overflow-y-auto p-4 scrollbar-thin">
+          {conversationList}
+        </div>
+      </div>
     </aside>
   );
 
@@ -131,7 +144,7 @@ export default function ConversationSidebar({
           <button
             type="button"
             onClick={onCloseMobile}
-            className="rounded-full bg-green-50 p-2 text-green-900"
+            className="rounded-full bg-green-50 p-2 text-green-900 transition-colors hover:bg-green-100"
             aria-label="بستن تاریخچه"
           >
             <X size={22} />
@@ -142,7 +155,7 @@ export default function ConversationSidebar({
           <button
             type="button"
             onClick={handleNewChat}
-            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-green-800 px-4 py-4 text-base font-bold text-white transition hover:bg-green-900"
+            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-green-800 px-4 py-4 text-base font-bold text-white transition-colors duration-200 hover:bg-green-900"
           >
             <MessageSquarePlus size={20} />
             گفتگوی جدید
