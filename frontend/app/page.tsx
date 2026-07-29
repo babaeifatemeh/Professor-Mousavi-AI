@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { History } from "lucide-react";
 import KnowledgeStatus from "@/components/KnowledgeStatus";
-import Footer from "@/components/Footer";
 import FeatureCards from "@/components/FeatureCards";
 import SearchBox from "@/components/SearchBox";
 import Header from "@/components/Header";
@@ -72,8 +71,7 @@ export default function Home() {
 
             <FeatureCards />
             <KnowledgeStatus />
-            <Footer />
-          </div>
+           </div>
 
           {user && (
             <ConversationSidebar
