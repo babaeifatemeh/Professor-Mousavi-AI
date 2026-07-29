@@ -40,8 +40,7 @@ export default function Footer() {
       </nav>
 
       <p className="mt-7 text-base leading-8 sm:text-lg">
-        © تمامی حقوق این سامانه متعلق به مؤسسه حکمةٌ صافیه (مؤسس استاد
-        علامه سید علی موسوی (ره)) می‌باشد.
+        © تمامی حقوق این سامانه متعلق به مؤسسه حکمةٌ صافیه (مؤسس استاد علامه سید علی موسوی (ره)) می‌باشد.
       </p>
 
       <p className="mt-3 text-sm text-gray-500">
