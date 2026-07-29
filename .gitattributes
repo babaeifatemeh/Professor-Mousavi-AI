@@ -1,1 +1,4 @@
 frontend/app/favicon.ico filter=lfs diff=lfs merge=lfs -text
+frontend/app/*.png filter=lfs diff=lfs merge=lfs -text
+frontend/public/*.png filter=lfs diff=lfs merge=lfs -text
+frontend/public/fonts/*.ttf filter=lfs diff=lfs merge=lfs -text

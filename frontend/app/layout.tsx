@@ -1,3 +1,4 @@
+import Footer from "@/components/Footer";
 import type { Metadata } from "next";
 import { Vazirmatn } from "next/font/google";
 import "./globals.css";
@@ -17,9 +18,13 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return (
-    <html lang="fa" dir="rtl">
-      <body className={vazir.className}>{children}</body>
-    </html>
-  );
+
+return (
+  <html lang="fa" dir="rtl">
+    <body className={vazir.className}>
+      {children}
+      <Footer />
+    </body>
+  </html>
+);
 }
