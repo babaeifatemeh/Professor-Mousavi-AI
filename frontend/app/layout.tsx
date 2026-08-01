@@ -1,3 +1,4 @@
+import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import type { Metadata } from "next";
 import { Vazirmatn } from "next/font/google";
@@ -21,10 +22,13 @@ export default function RootLayout({
 
 return (
   <html lang="fa" dir="rtl">
-    <body className={vazir.className}>
-      {children}
-      <Footer />
-    </body>
+    <body className={`${vazir.className} bg-[#eef8ef] text-[#063f25]`}>
+  <Header />
+
+  {children}
+
+  <Footer />
+</body>
   </html>
 );
 }

@@ -5,7 +5,6 @@ import { History } from "lucide-react";
 import KnowledgeStatus from "@/components/KnowledgeStatus";
 import FeatureCards from "@/components/FeatureCards";
 import SearchBox from "@/components/SearchBox";
-import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import ConversationSidebar from "@/components/ConversationSidebar";
 
@@ -41,8 +40,7 @@ export default function Home() {
         <div className="pointer-events-none absolute -right-20 top-96 h-80 w-80 rounded-full border border-green-200/30 opacity-40" />
         <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-64 rounded-t-[50%] bg-green-100/50" />
 
-        <Header />
-
+        
         {user && (
           <div className="relative z-20 mx-auto mt-5 max-w-7xl lg:hidden">
             <button
