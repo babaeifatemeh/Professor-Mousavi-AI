@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogIn } from "lucide-react";
-import AuthHeader from "@/components/AuthHeader";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api-backend";
 
@@ -56,10 +55,8 @@ export default function LoginPage() {
   }
 
   return (
-    <main dir="rtl" className="min-h-screen bg-[#eef8ef] px-6 py-10 text-green-950">
-      <AuthHeader />
-
-      <div className="mx-auto max-w-md rounded-3xl bg-white p-8 shadow-xl shadow-green-100">
+    <main dir="rtl" className="flex min-h-[calc(100vh-180px)] items-start justify-center bg-[#eef8ef] px-6 pb-14 pt-8 text-green-950 sm:pt-10">
+      <div className="w-full max-w-md rounded-3xl border border-green-100 bg-white p-8 shadow-xl shadow-green-100 sm:p-9">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-extrabold text-green-900">
             ورود به حساب کاربری
