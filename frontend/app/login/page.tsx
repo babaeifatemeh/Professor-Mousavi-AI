@@ -45,6 +45,7 @@ export default function LoginPage() {
       }
 
       localStorage.setItem("user", JSON.stringify(data.user));
+      window.dispatchEvent(new Event("user-changed"));
       alert("ورود با موفقیت انجام شد.");
       router.push("/");
     } catch {

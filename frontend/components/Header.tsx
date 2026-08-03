@@ -17,15 +17,33 @@ export default function Header() {
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem("user");
+    function loadUser() {
+      const savedUser = localStorage.getItem("user");
 
-    if (savedUser) {
+      if (!savedUser) {
+        setUser(null);
+        return;
+      }
+
       try {
         setUser(JSON.parse(savedUser));
       } catch {
         localStorage.removeItem("user");
+        setUser(null);
       }
     }
+
+    loadUser();
+
+    window.addEventListener("focus", loadUser);
+    window.addEventListener("storage", loadUser);
+    window.addEventListener("user-changed", loadUser);
+
+    return () => {
+      window.removeEventListener("focus", loadUser);
+      window.removeEventListener("storage", loadUser);
+      window.removeEventListener("user-changed", loadUser);
+    };
   }, []);
 
   useEffect(() => {
@@ -41,6 +59,7 @@ export default function Header() {
 
   function handleLogout() {
     localStorage.removeItem("user");
+    window.dispatchEvent(new Event("user-changed"));
     setUser(null);
     setMenuOpen(false);
     window.location.replace("/");
