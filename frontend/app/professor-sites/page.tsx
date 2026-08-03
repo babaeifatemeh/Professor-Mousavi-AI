@@ -86,7 +86,7 @@ export default function ProfessorSitesPage() {
                   استاد علامه سید علی موسوی (ره)
                 </p>
                 <p className="mt-1 text-sm text-[#66736c]">
-                  پژوهشگر، مدرس و مؤلف آثار فلسفی و قرآنی 
+                  محقق و فیلسوف متأله
                 </p>
               </div>
             </div>
