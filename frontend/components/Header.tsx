@@ -48,21 +48,29 @@ export default function Header() {
 
   return (
     <nav className="relative z-30 mx-auto flex max-w-7xl flex-col gap-5 rounded-3xl border border-green-100 bg-white/95 px-4 py-5 text-center shadow-xl shadow-green-200/50 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-9 lg:py-7 lg:text-right">
-      <div className="flex flex-col items-center gap-4 lg:flex-row lg:gap-5">
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-green-200 bg-green-50 sm:h-20 sm:w-20">
-          <BookOpen size={34} className="text-green-700 sm:size-10" />
+      <Link
+        href="/"
+        aria-label="بازگشت به صفحه اصلی"
+        title="بازگشت به صفحه اصلی"
+        className="group flex flex-col items-center gap-4 rounded-2xl transition lg:flex-row lg:gap-5"
+      >
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-green-200 bg-green-50 transition duration-200 group-hover:border-green-300 group-hover:bg-green-100 sm:h-20 sm:w-20">
+          <BookOpen
+            size={34}
+            className="text-green-700 transition duration-200 group-hover:scale-105 sm:size-10"
+          />
         </div>
 
         <div className="min-w-0">
-          <h1 className="text-xl font-extrabold leading-9 text-green-900 sm:text-2xl lg:text-3xl">
+          <h1 className="text-xl font-extrabold leading-9 text-green-900 transition-colors duration-200 group-hover:text-green-700 sm:text-2xl lg:text-3xl">
             پایگاه جامع درسی
           </h1>
 
-          <p className="mt-1 text-sm leading-7 text-green-900 sm:text-base lg:mt-2">
+          <p className="mt-1 text-sm leading-7 text-green-900 transition-colors duration-200 group-hover:text-green-700 sm:text-base lg:mt-2">
             استاد علامه سید علی موسوی(ره)
           </p>
         </div>
-      </div>
+      </Link>
 
       <div
         className="relative flex w-full flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-center lg:w-auto lg:justify-end"
