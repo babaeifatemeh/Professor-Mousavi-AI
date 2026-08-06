@@ -1,5 +1,4 @@
 import Footer from "@/components/Footer";
-import Header from "@/components/Header";
 
 export default function SiteRulesPage() {
   return (
@@ -9,8 +8,7 @@ export default function SiteRulesPage() {
     >
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
 
-        <Header />
-
+    
         <section className="mx-auto mt-10 max-w-5xl rounded-3xl border border-green-100 bg-white p-8 shadow-xl">
 
           <h1 className="mb-8 text-center text-4xl font-black text-green-900">
