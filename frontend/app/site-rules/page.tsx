@@ -1,4 +1,3 @@
-import Footer from "@/components/Footer";
 
 export default function SiteRulesPage() {
   return (
@@ -91,8 +90,7 @@ export default function SiteRulesPage() {
 
         </section>
 
-        <Footer />
-
+       
       </div>
     </main>
   );
