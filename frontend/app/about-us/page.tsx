@@ -6,18 +6,6 @@ import Link from "next/link";
 
 type IconProps = { className?: string };
 
-function QuranIcon({ className = "" }: IconProps) {
-  return (
-    <svg viewBox="0 0 64 64" fill="none" className={className} aria-hidden="true">
-      <path d="M12 18c0-3.3 2.7-6 6-6h14v38H18c-3.3 0-6-2.7-6-6V18Z" stroke="currentColor" strokeWidth="2.4" strokeLinejoin="round"/>
-      <path d="M52 18c0-3.3-2.7-6-6-6H32v38h14c3.3 0 6-2.7 6-6V18Z" stroke="currentColor" strokeWidth="2.4" strokeLinejoin="round"/>
-      <path d="M32 12v38M20 22h8M20 30h8M36 22h8M36 30h8" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/>
-      <path d="M12 44c0 3.3 2.7 6 6 6h14v4H18c-5.5 0-10-4.5-10-10V18" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M52 44c0 3.3-2.7 6-6 6H32v4h14c5.5 0 10-4.5 10-10V18" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  );
-}
-
 function BooksIcon({ className = "" }: IconProps) {
   return (
     <svg viewBox="0 0 64 64" fill="none" className={className} aria-hidden="true">
@@ -58,7 +46,6 @@ function Ornament() {
   );
 }
 
-// ساختار داده کتب و نشریات
 export interface Book {
   id: string;
   title: string;
@@ -67,25 +54,18 @@ export interface Book {
 }
 
 export const BOOKS_DATA: Book[] = [
-  // کتب تفسیری و علوم قرآنی
   { id: '1', title: 'نقطه الهدايه (جلد اول)', category: 'tafsir', buyUrl: 'https://www.ostad-mosavi.com/books/' },
   { id: '2', title: 'نقطه الهدايه (جلد دوم)', category: 'tafsir', buyUrl: 'https://www.ostad-mosavi.com/books/' },
   { id: '3', title: 'کتاب کوکب درى', category: 'tafsir', buyUrl: 'https://www.ostad-mosavi.com/books/' },
   { id: '4', title: 'کتاب سراج منیر', category: 'tafsir', buyUrl: 'https://www.ostad-mosavi.com/books/' },
   { id: '5', title: 'کتاب شهاب ثاقب', category: 'tafsir', buyUrl: 'https://www.ostad-mosavi.com/books/' },
-
-  // کتب فلسفی و حکمی (سلسله سیر نفس قدسی الهی)
   { id: '6', title: 'سیر نفس قدسی الهی (۱)', category: 'falsafi', buyUrl: 'https://www.ostad-mosavi.com/books/' },
   { id: '7', title: 'سیر نفس قدسی الهی (۲)', category: 'falsafi', buyUrl: 'https://www.ostad-mosavi.com/books/' },
   { id: '8', title: 'سیر نفس قدسی الهی (۳)', category: 'falsafi', buyUrl: 'https://www.ostad-mosavi.com/books/' },
   { id: '9', title: 'سیر نفس قدسی الهی (۴)', category: 'falsafi', buyUrl: 'https://www.ostad-mosavi.com/books/' },
   { id: '10', title: 'سیر نفس قدسی الهی (۵) - ماهیت روح', category: 'falsafi', buyUrl: 'https://www.ostad-mosavi.com/books/' },
-
-  // ترجمه‌های انگلیسی
   { id: '11', title: 'Kawkab Dorri _ Part 1', category: 'english', buyUrl: 'https://www.ostad-mosavi.com/books/' },
   { id: '12', title: 'Kawkab Dorri _ Part 2', category: 'english', buyUrl: 'https://www.ostad-mosavi.com/books/' },
-
-  // سالنامه‌ها و دوفصلنامه‌های قرآن و برهان
   { id: '13', title: 'سالنامه قرآن و برهان (شماره سه)', category: 'salnameh', buyUrl: 'https://quranoburhan.ir/' },
   { id: '14', title: 'سالنامه قرآن و برهان (شماره چهار)', category: 'salnameh', buyUrl: 'https://quranoburhan.ir/' },
   { id: '15', title: 'سالنامه قرآن و برهان (شماره پنج)', category: 'salnameh', buyUrl: 'https://quranoburhan.ir/' },
@@ -140,12 +120,12 @@ export default function AboutHikmatSafiyyahPage() {
 
   return (
     <main dir="rtl" className="min-h-screen overflow-hidden bg-[#fbfaf7] text-[#26372f]">
-      {/* بخش هیرو / معرفی اصلی مؤسسه طبق تصویر درخواستی */}
+      {/* بخش هیرو */}
       <section className="relative overflow-hidden border-b border-[#eadfca] bg-[#fffdf8]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_16%_22%,rgba(216,183,107,0.14),transparent_31%),radial-gradient(circle_at_82%_58%,rgba(0,139,67,0.10),transparent_34%)]" />
         <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-6 py-12 sm:px-10 lg:grid-cols-[1.05fr_0.95fr] lg:px-16 lg:py-16">
           
-          {/* ستون متن (سمت راست در RTL) */}
+          {/* ستون متن */}
           <div className="order-2 text-center lg:order-1">
             <h1 className="text-2xl font-black leading-tight text-[#008b43] sm:text-4xl">
               مؤسسه فرهنگی قرآن و عترت حکمة صافیه
@@ -182,17 +162,18 @@ export default function AboutHikmatSafiyyahPage() {
             </div>
           </div>
 
-          {/* ستون تصویر کارت استاد (سمت چپ در RTL) */}
+          {/* ستون تصویر استاد */}
           <div className="order-1 lg:order-2">
             <div className="relative overflow-hidden rounded-[28px] border border-[#eadfca] bg-white p-4 shadow-[0_24px_70px_rgba(62,80,69,0.14)]">
-              <div className="pb-2 text-right text-sm font-bold text-[#5b6861]">
+              <div className="mb-2 text-right text-sm font-bold text-[#5b6861]">
                 استاد علامه سید علی موسوی (ره)
               </div>
               <div className="relative h-[340px] w-full overflow-hidden rounded-[22px] sm:h-[400px]">
+                {/* استفاده از img برای اطمینان از خوانده شدن فایل از public */}
                 <img
                   src="/allameh-mousavi.jpg"
-                  alt="استاد علامه سید علی موسوی (ره)"
-                  className="w-full h-full object-cover object-top"
+                  alt=""
+                  className="h-full w-full object-cover object-top"
                 />
               </div>
             </div>
@@ -201,7 +182,7 @@ export default function AboutHikmatSafiyyahPage() {
         </div>
       </section>
 
-      {/* رویکرد و دیدگاه اصلی */}
+      {/* باقی بخش‌ها */}
       <section className="mx-auto max-w-7xl px-6 py-16 sm:px-10 lg:px-16 lg:py-20">
         <div className="rounded-[30px] border border-[#eadfc9] bg-white p-8 shadow-[0_22px_54px_rgba(70,82,74,0.08)] sm:p-12">
           <div className="grid gap-8 lg:grid-cols-2 lg:items-center">
@@ -211,20 +192,20 @@ export default function AboutHikmatSafiyyahPage() {
                 پیوند دانش فلسفی با حقایق قرآنی
               </h2>
               <p className="mt-5 text-[16px] leading-8 text-[#59675f]">
-                اساس دروس استاد اگرچه بر مداری فلسفی و علمی است، اما جان بیان ایشان حکایت از درک عمیق مبانی آیات قرآن کریم و روایات ائمه معصومین (ع) دارد. نتیجه اصلی این رویکرد، استحکام پایه‌های مذهبی، اخلاقی و عرفانی شاگردان بر مبنای متقن علمی است.
+                اساس دروس استاد اگرچه بر مداری فلسفی و علمی است، اما جان بیان ایشان حکایت از درک عمیق مبانی آیات قرآن کریم و روایات ائمه معصومین (ع) دارد.
               </p>
             </div>
             <div className="rounded-[22px] border border-[#e2d5bd] bg-[#fffdf8] p-6 text-sm leading-8 text-[#4a5851]">
               <p className="font-bold text-[#08743d]">«توصیه تاکیدشده استاد:»</p>
               <blockquote className="mt-2 italic">
-                «اصل فعالیت‌های شاگردان باید بر مبنای روحانیت، معنویت و تأیید حضرت امام زمان (عج) باشد، نه صرفاً پوسته و دیواره کار از جنس تعالیم قرآنی باشد. باید درس‌ها و کلاس‌های قرآنی به قدری از نظر علمی قوی کار کنند تا مراکز علمی و دانشگاهی در برابر این حوزه‌های درسی زانو بزنند.»
+                «اصل فعالیت‌های شاگردان باید بر مبنای روحانیت، معنویت و تأیید حضرت امام زمان (عج) باشد...»
               </blockquote>
             </div>
           </div>
         </div>
       </section>
 
-      {/* خط زمانی تاریخچه تأسیس */}
+      {/* خط زمانی */}
       <section className="bg-[#fffdf8] px-6 py-16 sm:px-10 lg:py-24">
         <div className="mx-auto max-w-7xl">
           <div className="text-center">
@@ -254,19 +235,15 @@ export default function AboutHikmatSafiyyahPage() {
         </div>
       </section>
 
-      {/* انتشارات و آثار چاپ شده (همراه با قابلیت فیلتر دسته‌بندی) */}
+      {/* آثار */}
       <section className="mx-auto max-w-7xl px-6 py-16 sm:px-10 lg:px-16 lg:py-24">
         <div className="text-center">
           <h2 className="text-3xl font-black text-[#b88a2f] sm:text-4xl">
             آثار و تألیفات استاد علامه سید علی موسوی (ره)
           </h2>
-          <p className="mt-3 text-base text-[#59675f]">
-            جهت مشاهده و تهیه کتب تفسیری، فلسفی و نشریات می‌توانید روی دکمه تهیه اثر کلیک کنید.
-          </p>
           <Ornament />
         </div>
 
-        {/* دکمه‌های فیلتر دسته‌بندی */}
         <div className="mt-10 flex flex-wrap justify-center gap-2">
           {categories.map((cat) => (
             <button
@@ -283,18 +260,16 @@ export default function AboutHikmatSafiyyahPage() {
           ))}
         </div>
 
-        {/* شبکه نمایش کارت‌های کتاب */}
         <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {filteredBooks.map((book) => (
             <div
               key={book.id}
-              className="bg-white rounded-[22px] border border-[#eadfc9] p-6 shadow-[0_10px_30px_rgba(70,82,74,0.05)] hover:shadow-md transition-all flex flex-col justify-between items-center text-center"
+              className="bg-white rounded-[22px] border border-[#eadfc9] p-6 shadow-[0_10px_30px_rgba(70,82,74,0.05)] flex flex-col justify-between items-center text-center"
             >
               <div>
                 <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-[#fdfbf6] border border-[#d7bb76] flex items-center justify-center text-[#08743d]">
                   <BooksIcon className="h-7 w-7" />
                 </div>
-
                 <h3 className="text-base font-black text-[#26372f] mb-2 leading-snug">
                   {book.title}
                 </h3>
@@ -307,38 +282,9 @@ export default function AboutHikmatSafiyyahPage() {
                 className="mt-6 w-full py-2.5 px-4 border border-[#d7bb76] text-[#08743d] rounded-xl font-bold text-sm hover:bg-[#fdfbf6] transition-colors flex items-center justify-center gap-2"
               >
                 <span>تهیه اثر</span>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
               </a>
             </div>
           ))}
-        </div>
-      </section>
-
-      {/* دوره‌ها و فعالیت‌های علمی آموزشی */}
-      <section className="bg-[#fffdf8] border-t border-[#eadfca] px-6 py-16 sm:px-10 lg:py-24">
-        <div className="mx-auto max-w-7xl">
-          <div className="text-center">
-            <h2 className="text-3xl font-black text-[#b88a2f] sm:text-4xl">
-              دوره‌ها و فعالیت‌های آموزشی برگزارشده
-            </h2>
-            <Ornament />
-          </div>
-
-          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {activeCourses.map((course, idx) => (
-              <div
-                key={idx}
-                className="flex items-start gap-3 rounded-[18px] border border-[#eadfc9] bg-white p-5 shadow-[0_6px_20px_rgba(0,0,0,0.03)]"
-              >
-                <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-[#08743d] text-xs font-extrabold text-white">
-                  {idx + 1}
-                </span>
-                <p className="text-sm font-bold leading-6 text-[#26372f]">{course}</p>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -349,11 +295,6 @@ export default function AboutHikmatSafiyyahPage() {
           <blockquote className="mx-auto mt-4 max-w-4xl text-lg font-semibold leading-[2] text-white sm:text-xl">
             امیدواریم در این مأمن علمی و قرآنی بتوانیم ذره‌ای از حق فراوان دروس و مجاهدت‌های علمی حضرت استاد علامه سید علی موسوی (ره) را به شایستگی ادا نماییم.
           </blockquote>
-          <div className="mx-auto mt-6 flex w-28 items-center gap-3">
-            <span className="h-px flex-1 bg-[#f1d792]" />
-            <span className="h-3 w-3 rotate-45 border border-[#f1d792]" />
-            <span className="h-px flex-1 bg-[#f1d792]" />
-          </div>
         </div>
       </section>
     </main>
