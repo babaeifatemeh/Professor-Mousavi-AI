@@ -189,12 +189,10 @@ export default function AboutHikmatSafiyyahPage() {
                 استاد علامه سید علی موسوی (ره)
               </div>
               <div className="relative h-[340px] w-full overflow-hidden rounded-[22px] sm:h-[400px]">
-                <Image
+                <img
                   src="/allameh-mousavi.jpg"
                   alt="استاد علامه سید علی موسوی (ره)"
-                  fill
-                  priority
-                  className="object-cover object-top"
+                  className="w-full h-full object-cover object-top"
                 />
               </div>
             </div>
