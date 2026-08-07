@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -22,16 +25,6 @@ function BooksIcon({ className = "" }: IconProps) {
       <rect x="12" y="27" width="38" height="11" rx="3" stroke="currentColor" strokeWidth="2.4"/>
       <rect x="16" y="43" width="34" height="10" rx="3" stroke="currentColor" strokeWidth="2.4"/>
       <path d="M22 16.5h21M18 32.5h25M22 48h21" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/>
-    </svg>
-  );
-}
-
-function WisdomIcon({ className = "" }: IconProps) {
-  return (
-    <svg viewBox="0 0 64 64" fill="none" className={className} aria-hidden="true">
-      <path d="M32 10 14 20l18 10 18-10L32 10Z" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round"/>
-      <path d="M18 24.5V40c0 6 6.3 11 14 11s14-5 14-11V24.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/>
-      <path d="M32 30v21" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/>
     </svg>
   );
 }
@@ -65,6 +58,42 @@ function Ornament() {
   );
 }
 
+// ساختار داده کتب و نشریات
+export interface Book {
+  id: string;
+  title: string;
+  category: 'tafsir' | 'falsafi' | 'english' | 'salnameh';
+  buyUrl: string;
+}
+
+export const BOOKS_DATA: Book[] = [
+  // کتب تفسیری و علوم قرآنی
+  { id: '1', title: 'نقطه الهدايه (جلد اول)', category: 'tafsir', buyUrl: 'https://www.ostad-mosavi.com/books/' },
+  { id: '2', title: 'نقطه الهدايه (جلد دوم)', category: 'tafsir', buyUrl: 'https://www.ostad-mosavi.com/books/' },
+  { id: '3', title: 'کتاب کوکب درى', category: 'tafsir', buyUrl: 'https://www.ostad-mosavi.com/books/' },
+  { id: '4', title: 'کتاب سراج منیر', category: 'tafsir', buyUrl: 'https://www.ostad-mosavi.com/books/' },
+  { id: '5', title: 'کتاب شهاب ثاقب', category: 'tafsir', buyUrl: 'https://www.ostad-mosavi.com/books/' },
+
+  // کتب فلسفی و حکمی (سلسله سیر نفس قدسی الهی)
+  { id: '6', title: 'سیر نفس قدسی الهی (۱)', category: 'falsafi', buyUrl: 'https://www.ostad-mosavi.com/books/' },
+  { id: '7', title: 'سیر نفس قدسی الهی (۲)', category: 'falsafi', buyUrl: 'https://www.ostad-mosavi.com/books/' },
+  { id: '8', title: 'سیر نفس قدسی الهی (۳)', category: 'falsafi', buyUrl: 'https://www.ostad-mosavi.com/books/' },
+  { id: '9', title: 'سیر نفس قدسی الهی (۴)', category: 'falsafi', buyUrl: 'https://www.ostad-mosavi.com/books/' },
+  { id: '10', title: 'سیر نفس قدسی الهی (۵) - ماهیت روح', category: 'falsafi', buyUrl: 'https://www.ostad-mosavi.com/books/' },
+
+  // ترجمه‌های انگلیسی
+  { id: '11', title: 'Kawkab Dorri _ Part 1', category: 'english', buyUrl: 'https://www.ostad-mosavi.com/books/' },
+  { id: '12', title: 'Kawkab Dorri _ Part 2', category: 'english', buyUrl: 'https://www.ostad-mosavi.com/books/' },
+
+  // سالنامه‌ها و دوفصلنامه‌های قرآن و برهان
+  { id: '13', title: 'سالنامه قرآن و برهان (شماره سه)', category: 'salnameh', buyUrl: 'https://quranoburhan.ir/' },
+  { id: '14', title: 'سالنامه قرآن و برهان (شماره چهار)', category: 'salnameh', buyUrl: 'https://quranoburhan.ir/' },
+  { id: '15', title: 'سالنامه قرآن و برهان (شماره پنج)', category: 'salnameh', buyUrl: 'https://quranoburhan.ir/' },
+  { id: '16', title: 'سالنامه قرآن و برهان (شماره شش)', category: 'salnameh', buyUrl: 'https://quranoburhan.ir/' },
+  { id: '17', title: 'دوفصلنامه قرآن و برهان (شماره یک)', category: 'salnameh', buyUrl: 'https://quranoburhan.ir/' },
+  { id: '18', title: 'دوفصلنامه قرآن و برهان (شماره دو)', category: 'salnameh', buyUrl: 'https://quranoburhan.ir/' },
+];
+
 const historyMilestones = [
   {
     date: "۳۱ تیر ۱۳۹۲",
@@ -83,34 +112,6 @@ const historyMilestones = [
   },
 ];
 
-const publishedBooks = [
-  {
-    title: "شهابٌ ثاقب",
-    subtitle: "شرح آیاتی از سوره مبارکه اسراء",
-    desc: "مجموعه سخنرانی‌های رمضان ۱۳۷۵ به انضمام تحقیق در مکتب مشاء و سیره حضرت علی (ع).",
-  },
-  {
-    title: "سراجٌ منیر",
-    subtitle: "شرح آیاتی از سوره مبارکه نحل",
-    desc: "مجموعه سخنرانی‌های رمضان ۱۳۷۷ به انضمام عظمت رسول‌الله (ص).",
-  },
-  {
-    title: "کوکب درّی",
-    subtitle: "شرح سوره مبارکه انفال",
-    desc: "مجموعه سخنرانی‌های رمضان ۱۳۷۸ به ضمیمه عظمت عصمت‌الکبری فاطمه زهرا (س).",
-  },
-  {
-    title: "نقطة الهدايه",
-    subtitle: "شرح آیاتی از سوره مبارکه هود",
-    desc: "مجموعه سخنرانی‌های رمضان ۱۳۷۹ به انضمام سیر علمی فیثاغورس و بقراط.",
-  },
-  {
-    title: "نفسٌ قدسیٌ الهیٌ (۴ جلد)",
-    subtitle: "تدریس جلد هشتم اسفار ملاصدرا",
-    desc: "مباحث سیر نفس از حکمت متعالیه ملاصدرا که به چاپ عمومی رسیده است.",
-  },
-];
-
 const activeCourses = [
   "مقدمات تفسیر (آموزش اصطلاحات و آشنایی با مفسران)",
   "مقدمات فلسفه (بررسی مکاتب مادی و الهی، مشاء، اشراق و حکمت متعالیه)",
@@ -123,6 +124,20 @@ const activeCourses = [
 ];
 
 export default function AboutHikmatSafiyyahPage() {
+  const [activeCategory, setActiveCategory] = useState<string>('all');
+
+  const categories = [
+    { id: 'all', label: 'همه آثار' },
+    { id: 'tafsir', label: 'کتب تفسیری و قرآنی' },
+    { id: 'falsafi', label: 'کتب فلسفی و حکمی' },
+    { id: 'salnameh', label: 'نشریه و سالنامه قرآن و برهان' },
+    { id: 'english', label: 'ترجمه‌ها (English)' },
+  ];
+
+  const filteredBooks = activeCategory === 'all' 
+    ? BOOKS_DATA 
+    : BOOKS_DATA.filter(b => b.category === activeCategory);
+
   return (
     <main dir="rtl" className="min-h-screen overflow-hidden bg-[#fbfaf7] text-[#26372f]">
       {/* بخش هیرو / معرفی اصلی مؤسسه */}
@@ -238,32 +253,63 @@ export default function AboutHikmatSafiyyahPage() {
         </div>
       </section>
 
-      {/* انتشارات و آثار چاپ شده */}
+      {/* انتشارات و آثار چاپ شده (همراه با قابلیت فیلتر دسته‌بندی) */}
       <section className="mx-auto max-w-7xl px-6 py-16 sm:px-10 lg:px-16 lg:py-24">
         <div className="text-center">
           <h2 className="text-3xl font-black text-[#b88a2f] sm:text-4xl">
-            انتشارات استاد موسوی و آثار منتشرشده
+            آثار و تألیفات استاد علامه سید علی موسوی (ره)
           </h2>
           <p className="mt-3 text-base text-[#59675f]">
-            از میان بیش از ۲۵۰ اثر حاصل تدریس و سخنرانی‌های استاد، آثار زیر به چاپ رسیده‌اند:
+            جهت مشاهده و تهیه کتب تفسیری، فلسفی و نشریات می‌توانید روی دکمه تهیه اثر کلیک کنید.
           </p>
           <Ornament />
         </div>
 
-        <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {publishedBooks.map((book, idx) => (
-            <div
-              key={idx}
-              className="rounded-[24px] border border-[#eadfc9] bg-white p-7 shadow-[0_14px_35px_rgba(70,82,74,0.06)] transition hover:-translate-y-1"
+        {/* دکمه‌های فیلتر دسته‌بندی */}
+        <div className="mt-10 flex flex-wrap justify-center gap-2">
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setActiveCategory(cat.id)}
+              className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-200 ${
+                activeCategory === cat.id
+                  ? 'bg-[#008b43] text-white shadow-md'
+                  : 'bg-white border border-[#eadfc9] text-[#26372f] hover:bg-[#f9fbf7]'
+              }`}
             >
-              <div className="flex items-center gap-3 text-[#08743d]">
-                <BooksIcon className="h-8 w-8 flex-shrink-0" />
-                <div>
-                  <h3 className="text-xl font-black">{book.title}</h3>
-                  <p className="text-xs font-bold text-[#b88a2f]">{book.subtitle}</p>
+              {cat.label}
+            </button>
+          ))}
+        </div>
+
+        {/* شبکه نمایش کارت‌های کتاب */}
+        <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {filteredBooks.map((book) => (
+            <div
+              key={book.id}
+              className="bg-white rounded-[22px] border border-[#eadfc9] p-6 shadow-[0_10px_30px_rgba(70,82,74,0.05)] hover:shadow-md transition-all flex flex-col justify-between items-center text-center"
+            >
+              <div>
+                <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-[#fdfbf6] border border-[#d7bb76] flex items-center justify-center text-[#08743d]">
+                  <BooksIcon className="h-7 w-7" />
                 </div>
+
+                <h3 className="text-base font-black text-[#26372f] mb-2 leading-snug">
+                  {book.title}
+                </h3>
               </div>
-              <p className="mt-4 text-sm leading-7 text-[#5a6860]">{book.desc}</p>
+
+              <a
+                href={book.buyUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-6 w-full py-2.5 px-4 border border-[#d7bb76] text-[#08743d] rounded-xl font-bold text-sm hover:bg-[#fdfbf6] transition-colors flex items-center justify-center gap-2"
+              >
+                <span>تهیه اثر</span>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
             </div>
           ))}
         </div>
