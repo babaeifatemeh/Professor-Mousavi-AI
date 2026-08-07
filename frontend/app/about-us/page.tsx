@@ -50,7 +50,7 @@ function HistoryIcon({ className = "" }: IconProps) {
 
 function Ornament() {
   return (
-    <div className="mx-auto mt-5 flex w-40 items-center justify-center gap-3">
+    <div className="mx-auto my-4 flex w-40 items-center justify-center gap-3">
       <span className="h-px flex-1 bg-[#d8b76b]" />
       <span className="h-3 w-3 rotate-45 border border-[#b88a2f] bg-[#fffaf0]" />
       <span className="h-px flex-1 bg-[#d8b76b]" />
@@ -140,53 +140,55 @@ export default function AboutHikmatSafiyyahPage() {
 
   return (
     <main dir="rtl" className="min-h-screen overflow-hidden bg-[#fbfaf7] text-[#26372f]">
-      {/* بخش هیرو / معرفی اصلی مؤسسه */}
+      {/* بخش هیرو / معرفی اصلی مؤسسه طبق تصویر درخواستی */}
       <section className="relative overflow-hidden border-b border-[#eadfca] bg-[#fffdf8]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_16%_22%,rgba(216,183,107,0.14),transparent_31%),radial-gradient(circle_at_82%_58%,rgba(0,139,67,0.10),transparent_34%)]" />
-        <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-6 py-14 sm:px-10 lg:grid-cols-[1.05fr_0.95fr] lg:px-16 lg:py-20">
-          <div className="order-2 lg:order-1">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#d7bb76] bg-[#fdfbf6] px-4 py-1.5 text-sm font-extrabold text-[#b88a2f]">
-              <CertificateIcon className="h-4 w-4 text-[#b88a2f]" />
-              با مجوز رسمی از وزارت فرهنگ و ارشاد اسلامی
-            </div>
-            
-            <h1 className="mt-4 text-3xl font-black leading-[1.45] text-[#008b43] sm:text-5xl">
+        <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-6 py-12 sm:px-10 lg:grid-cols-[1.05fr_0.95fr] lg:px-16 lg:py-16">
+          
+          {/* ستون متن (سمت راست در RTL) */}
+          <div className="order-2 text-center lg:order-1">
+            <h1 className="text-2xl font-black leading-tight text-[#008b43] sm:text-4xl">
               مؤسسه فرهنگی قرآن و عترت حکمة صافیه
             </h1>
-            
-            <div className="mt-5 flex w-44 items-center gap-3">
-              <span className="h-px flex-1 bg-[#d8b76b]" />
-              <span className="h-3 w-3 rotate-45 border border-[#b88a2f] bg-[#fffaf0]" />
-              <span className="h-px flex-1 bg-[#d8b76b]" />
+
+            <p className="mt-2 text-lg font-bold text-[#1a2e22] sm:text-xl">
+              (مؤسس استاد علامه سید علی موسوی (ره))
+            </p>
+
+            <div className="mt-4 flex justify-center">
+              <span className="inline-flex items-center gap-2 rounded-full border border-[#d7bb76] bg-[#fdfbf6] px-4 py-1.5 text-xs font-extrabold text-[#b88a2f] sm:text-sm">
+                <CertificateIcon className="h-4 w-4 text-[#b88a2f]" />
+                با مجوز رسمی از وزارت فرهنگ و ارشاد اسلامی
+              </span>
             </div>
 
-            <p className="mt-7 max-w-2xl text-lg font-bold leading-9 text-[#17693f] sm:text-xl sm:leading-10">
+            <Ornament />
+
+            <p className="mx-auto mt-4 max-w-2xl text-base font-bold leading-8 text-[#008b43] sm:text-lg sm:leading-9">
               تبیین شایسته دیدگاه‌ها، نظریات و شیوه تحقیق علمی و حکمی فیلسوف متأله استاد علامه سید علی موسوی (ره)
             </p>
-            
-            <p className="mt-5 max-w-2xl text-[16px] leading-8 text-[#5b6861] sm:text-[17px] sm:leading-9">
+
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-[#5b6861] sm:text-base sm:leading-8">
               این مؤسسه پس از سالیانی متمادی از تدریس استاد در مبانی علمی و فلسفی اسفار ملاصدرا و سخنرانی‌های تفسیری ذیل تفسیر صافی، توسط صحابه درسی استاد تاسیس شد تا گامی بلند در جهت انتقال معارف اصیل قرآن و عترت به نسل‌های آینده برداشته شود.
             </p>
 
-            <div className="mt-9 flex flex-wrap gap-4">
+            <div className="mt-8 flex justify-center">
               <Link
                 href="/about-system"
-                className="inline-flex items-center justify-center rounded-[14px] bg-[#008b43] px-8 py-3.5 text-base font-extrabold text-white shadow-[0_12px_28px_rgba(0,139,67,0.22)] transition hover:-translate-y-0.5 hover:bg-[#00783a]"
+                className="inline-flex items-center justify-center rounded-[14px] border border-[#d7bb76] bg-white px-8 py-3 text-base font-extrabold text-[#08743d] shadow-[0_6px_20px_rgba(0,0,0,0.04)] transition hover:-translate-y-0.5 hover:bg-[#faf8f2]"
               >
                 سامانه پژوهشی هوشمند
-              </Link>
-              <Link
-                href="/"
-                className="inline-flex items-center justify-center rounded-[14px] border border-[#d7bb76] bg-white px-8 py-3.5 text-base font-extrabold text-[#08743d] shadow-[0_6px_20px_rgba(0,0,0,0.04)] transition hover:-translate-y-0.5 hover:bg-[#faf8f2]"
-              >
-                ورود به سامانه گفت‌وگو
               </Link>
             </div>
           </div>
 
+          {/* ستون تصویر کارت استاد (سمت چپ در RTL) */}
           <div className="order-1 lg:order-2">
-            <div className="relative overflow-hidden rounded-[28px] border border-[#eadfca] bg-white p-3 shadow-[0_24px_70px_rgba(62,80,69,0.14)]">
-              <div className="relative h-[360px] w-full overflow-hidden rounded-[22px] sm:h-[430px]">
+            <div className="relative overflow-hidden rounded-[28px] border border-[#eadfca] bg-white p-4 shadow-[0_24px_70px_rgba(62,80,69,0.14)]">
+              <div className="pb-2 text-right text-sm font-bold text-[#5b6861]">
+                استاد علامه سید علی موسوی (ره)
+              </div>
+              <div className="relative h-[340px] w-full overflow-hidden rounded-[22px] sm:h-[400px]">
                 <Image
                   src="/allameh-mousavi.jpg"
                   alt="استاد علامه سید علی موسوی (ره)"
@@ -197,6 +199,7 @@ export default function AboutHikmatSafiyyahPage() {
               </div>
             </div>
           </div>
+
         </div>
       </section>
 
@@ -341,7 +344,7 @@ export default function AboutHikmatSafiyyahPage() {
         </div>
       </section>
 
-      {/* پیام پایانی و صلوات */}
+      {/* پیام پایانی */}
       <section className="mx-auto max-w-7xl px-6 py-16 sm:px-10 lg:px-16">
         <div className="overflow-hidden rounded-[28px] bg-[#008b43] px-7 py-12 text-center shadow-[0_22px_55px_rgba(0,139,67,0.22)] sm:px-12">
           <p className="text-[18px] font-extrabold text-[#f1d792]">توفیقات ربانی و عنایات حضرت ولی‌عصر (عج)</p>
